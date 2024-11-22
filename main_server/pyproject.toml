@@ -1,16 +1,11 @@
 [tool.poetry]
-name = "ebadataset"
-version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
-readme = "README.md"
+authors = ["admin <admin@example.com>"]
+description = "FastAPI project generated using minimal-fastapi-postgres-template."
+name = "app"
+version = "0.1.0-alpha"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
 
 alembic = "^1.13.2"
 asyncpg = "^0.29.0"
@@ -37,6 +32,9 @@ ruff = "^0.6.2"
 types-passlib = "^1.7.7.20240819"
 uvicorn = { extras = ["standard"], version = "^0.30.6" }
 
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
 
 [tool.pytest.ini_options]
 addopts = "-vv -n auto --cov --cov-report xml --cov-report term-missing --cov-fail-under=100"
