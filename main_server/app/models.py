@@ -15,9 +15,23 @@
 
 import uuid
 from datetime import datetime
+from enum import Enum as PyEnum
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, Uuid, func
+from sqlalchemy import Enum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+class AccessRights(PyEnum):
+    PUBLIC = "public"
+    PRIVATE = "private"
+    RESTRICTED = "restricted"
+
+class EventType(PyEnum):
+    MODIFY = "modify"
+    READ = "read"
+    CREATE = "create"
+    DELETE = "delete"
 
 
 class Base(DeclarativeBase):
@@ -55,3 +69,41 @@ class RefreshToken(Base):
         ForeignKey("user_account.user_id", ondelete="CASCADE"),
     )
     user: Mapped["User"] = relationship(back_populates="refresh_tokens")
+
+
+class Dataset(Base):
+    __tablename__ = "dataset"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
+    size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at_device: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    created_at_server: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    last_modified: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+    last_accessed: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    access_rights: Mapped[AccessRights] = mapped_column(
+        Enum(AccessRights), nullable=False, default=AccessRights.PRIVATE
+    )
+
+
+class DatasetUsageHistory(Base):
+    __tablename__ = "dataset_usage_history"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    host_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    dataset_name: Mapped[str] = mapped_column(String(256), nullable=False)
+
+    event_type: Mapped[EventType] = mapped_column(
+        Enum(EventType), nullable=False
+    )
+    event_time: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
