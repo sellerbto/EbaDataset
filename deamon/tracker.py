@@ -1,24 +1,43 @@
 import socket
+from datetime import datetime, timezone
+
 from watchdog.observers import Observer
 from main_server.app.schemas.requests import ClientRequest
 from watchdog.events import FileSystemEventHandler, DirModifiedEvent, FileModifiedEvent, DirDeletedEvent, \
     FileDeletedEvent
 from deamon.base import TrackingResult, TrackingStatus, ListTrackedResult
 from typing import Set, Dict, List
+import requests
 import time
 import os
 
 
-def get_metadata(file_path: str) -> ClientRequest:
+def format_timestamp_to_iso8601(timestamp):
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+def get_metadata(file_path: str) -> Dict:
     stats = os.stat(file_path)
-    client_response = ClientRequest(
-        hostname=socket.gethostname(),
-        age=stats.st_ctime,
-        access=oct(stats.st_mode)[-3:],
-        last_access=time.ctime(stats.st_ctime),
-        last_modified=time.ctime(stats.st_mtime),
-    )
+    client_response = {
+        "hostname": socket.gethostname(),
+        "dataset_name": file_path,
+        "age": format_timestamp_to_iso8601(stats.st_ctime),
+        "access_rights": oct(stats.st_mode)[-3:],
+        "last_access_date": format_timestamp_to_iso8601(stats.st_atime),
+        "last_modification_date": format_timestamp_to_iso8601(stats.st_mtime),
+    }
     return client_response
+
+
+def send_metadata_to_server(metadata: Dict) -> None:
+    try:
+        response = requests.put("http://127.0.0.1:8000/dataset/add_event", json=metadata)
+        if response.status_code == 200:
+            print(f"Метаданные успешно отправлены: {metadata["dataset_name"]}")
+        else:
+            print(f"Ошибка отправки метаданных: {response.status_code}")
+    except Exception as e:
+        print(f"Не удалось отправить метаданные: {e}")
 
 
 class DirectoryHandler(FileSystemEventHandler):
@@ -43,7 +62,9 @@ class DirectoryHandler(FileSystemEventHandler):
     def on_modified(self, event: DirModifiedEvent | FileModifiedEvent) -> None:
         if event.src_path in self.file_paths:
             print(f"File modified: {event.src_path}")
-            print(get_metadata(event.src_path))
+            metadata = get_metadata(event.src_path)
+            print(metadata)
+            send_metadata_to_server(metadata)
 
     def on_deleted(self, event: DirDeletedEvent | FileDeletedEvent) -> None:
         if event.src_path in self.file_paths:
