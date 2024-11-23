@@ -4,8 +4,9 @@ from typing import Optional, Sequence, cast
 from sqlalchemy import cast, DateTime
 from sqlalchemy import func
 from sqlalchemy import update, delete
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction
+
 
 from app.models import Dataset, DatasetUsageHistory, AccessRights, EventType
 from app.schemas.requests import ClientRequest
@@ -79,47 +80,77 @@ class DatasetUsageHistoryRepository:
 
 
     async def add_event(self, client_request: ClientRequest):
-        event_types = [
-            EventType.READ,
-            EventType.MODIFY,
-            EventType.CREATE
-        ]
+        with self.session.get_transaction() as transaction:
+            transaction: AsyncSessionTransaction
+            event_types = [
+                EventType.READ,
+                EventType.MODIFY,
+                EventType.CREATE
+            ]
 
-        event_times = [
-            client_request.last_access_date,
-            client_request.last_modification_date,
-            client_request.age
-        ]
+            event_times = [
+                client_request.last_access_date,
+                client_request.last_modification_date,
+                client_request.age
+            ]
 
-        event_added = False
+            event_added = False
 
-        for event_type, event_time in zip(event_types, event_times):
-            stmt = select(DatasetUsageHistory).filter(
-                DatasetUsageHistory.host_name == client_request.hostname,
-                DatasetUsageHistory.dataset_name == client_request.dataset_name,
-                DatasetUsageHistory.event_type == event_type,
-                DatasetUsageHistory.event_time == cast(event_time.replace(tzinfo=None), DateTime)
-            )
-
-            result = await self.session.execute(stmt)
-            length = len(result.scalars().all())
-            print(f'LENGTH - {length}')
-            if length == 0:
-                event_added = True
-                new_event = DatasetUsageHistory(
-                    host_name=client_request.hostname,
-                    dataset_name=client_request.dataset_name,
-                    event_type=event_type,
-                    event_time=(
-                        datetime.fromtimestamp(event_time, tz=timezone.utc).replace(tzinfo=None)
-                        if isinstance(event_time, float)
-                        else event_time.replace(tzinfo=None) if isinstance(event_time, datetime) and event_time.tzinfo
-                        else event_time
-                    )
+            for event_type, event_time in zip(event_types, event_times):
+                stmt = select(DatasetUsageHistory).filter(
+                    DatasetUsageHistory.host_name == client_request.hostname,
+                    DatasetUsageHistory.dataset_name == client_request.dataset_name,
+                    DatasetUsageHistory.event_type == event_type,
+                    DatasetUsageHistory.event_time == cast(event_time.replace(tzinfo=None), DateTime)
                 )
-                self.session.add(new_event)
-        await self.session.commit()
-        return event_added
+
+                result = await transaction.session.execute(stmt)
+                length = len(result.scalars().all())
+                print(f'LENGTH - {length}')
+                if length == 0:
+                    event_added = True
+                    new_event = DatasetUsageHistory(
+                        host_name=client_request.hostname,
+                        dataset_name=client_request.dataset_name,
+                        event_type=event_type,
+                        event_time=(
+                            datetime.fromtimestamp(event_time, tz=timezone.utc).replace(tzinfo=None)
+                            if isinstance(event_time, float)
+                            else event_time.replace(tzinfo=None) if isinstance(event_time, datetime) and event_time.tzinfo
+                            else event_time
+                        )
+                    )
+                    transaction.session.add(new_event)
+
+                    if event_type == EventType.CREATE:
+                        new_dataset = Dataset(
+                            name=client_request.dataset_name,
+                            size=100,
+                            host=client_request.hostname,
+                            created_at_device=client_request.last_modification_date,
+                            last_accessed=client_request.last_access_date,
+                            access_rights=AccessRights.PRIVATE,
+                        )
+                        transaction.session.add(new_dataset)
+                    elif event_type == EventType.DELETE:
+                        stmt = delete(Dataset).where(
+                                Dataset.host == client_request.hostname,
+                                DatasetUsageHistory.dataset_name == client_request.dataset_name)
+                        await transaction.session.execute(stmt)
+                    else:
+                        stmt = (
+                            update(Dataset).where(
+                                Dataset.host == client_request.hostname,
+                                DatasetUsageHistory.dataset_name == client_request.dataset_name)
+                            .values (
+                                {
+                                    Dataset.last_modified: client_request.last_modification_date,
+                                    Dataset.last_accessed: client_request.last_access_date,
+                                }))
+                        await transaction.session.execute(stmt)
+
+            await transaction.commit()
+            return event_added
 
     async def get_events_statistic(self, host_name: str, dataset_name: str):
         stmt = select(
