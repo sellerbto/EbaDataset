@@ -34,3 +34,5 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=get_settings().security.allowed_hosts,
 )
+
+print(app.routes)

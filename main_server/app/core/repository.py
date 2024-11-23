@@ -80,7 +80,7 @@ class DatasetUsageHistoryRepository:
 
 
     async def add_event(self, client_request: ClientRequest):
-        with self.session.get_transaction() as transaction:
+        async with self.session.begin_nested() as transaction:
             transaction: AsyncSessionTransaction
             event_types = [
                 EventType.READ,
@@ -129,7 +129,7 @@ class DatasetUsageHistoryRepository:
                             host=client_request.hostname,
                             created_at_device=client_request.last_modification_date,
                             last_accessed=client_request.last_access_date,
-                            access_rights=AccessRights.PRIVATE,
+
                         )
                         transaction.session.add(new_dataset)
                     elif event_type == EventType.DELETE:

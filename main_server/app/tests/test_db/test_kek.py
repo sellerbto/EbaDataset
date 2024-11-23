@@ -14,7 +14,7 @@ from app.models import DatasetUsageHistory
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_get_statistic(client: AsyncClient, session: AsyncSession) -> None:
+async def test_get_statistic(client: AsyncClient, session: AsyncSession, default_user_headers: dict[str, str],) -> None:
     dataset_name = "test_dataset"
     host_name = "test_host"
 
@@ -38,14 +38,15 @@ async def test_get_statistic(client: AsyncClient, session: AsyncSession) -> None
         "hostname": "string",
         "dataset_name": "string",
         "age": "2024-11-23T17:25:50.481Z",
-        "access_rights": "string",
+        "access_rights": "public",
         "last_access_date": "2024-11-23T17:25:50.481Z",
         "last_modification_date": "2024-11-23T17:25:50.481Z"
     }
 
     response = await client.put(
         app.url_path_for("add_usage_event"),
-        data=str(json.dumps(client_request))
+        headers=default_user_headers,
+        json=client_request
     )
 
     assert response.status_code == status.HTTP_200_OK
