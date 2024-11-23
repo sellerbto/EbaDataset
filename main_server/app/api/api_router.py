@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.api import api_messages
-from app.api.endpoints import auth, users, dataset
+from app.api.endpoints import auth, users, dataset, dashboard
 
 auth_router = APIRouter()
 auth_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -32,4 +32,5 @@ api_router = APIRouter(
     }
 )
 api_router.include_router(users.router, prefix="/users", tags=["users"])
-api_router.include_router(dataset.router, prefix="/events")
+api_router.include_router(dashboard.router, prefix="/dashboard")
+api_router.include_router(dataset.router, prefix="/dataset")

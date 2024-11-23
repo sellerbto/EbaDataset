@@ -77,6 +77,7 @@ class Dataset(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     name: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
     size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    host: Mapped[str] = mapped_column(String(256), nullable=False)
     created_at_device: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
