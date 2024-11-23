@@ -97,7 +97,7 @@ class DatasetUsageHistoryRepository:
             stmt = select(DatasetUsageHistory).filter(
                 DatasetUsageHistory.host_name == client_request.hostname,
                 DatasetUsageHistory.dataset_name == client_request.dataset_name,
-                # cast(DatasetUsageHistory.event_type, String) == str(event_type.value),
+                DatasetUsageHistory.event_type == event_type,
                 DatasetUsageHistory.event_time == cast(event_time.replace(tzinfo=None), DateTime)
             )
 
