@@ -137,3 +137,21 @@ class DatasetUsageHistoryRepository:
         event_statistics = {event_type: count for event_type, count in result.fetchall()}
 
         return event_statistics
+
+    async def get_events_statistic_by_time(self, host_name: str, dataset_name: str, timestamp: datetime):
+        stmt = select(
+            DatasetUsageHistory.event_type,
+            func.count(DatasetUsageHistory.event_type).label('event_count')
+        ).filter(
+            DatasetUsageHistory.host_name == host_name,
+            DatasetUsageHistory.dataset_name == dataset_name,
+            datetime.now() - DatasetUsageHistory.event_time > timestamp
+        ).group_by(DatasetUsageHistory.event_type)
+
+        # Выполняем запрос
+        result = await self.session.execute(stmt)
+
+        # Преобразуем результат в словарь
+        event_statistics = {event_type: count for event_type, count in result.fetchall()}
+
+        return event_statistics
