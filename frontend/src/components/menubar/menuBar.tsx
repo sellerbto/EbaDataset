@@ -4,7 +4,7 @@ import './MenuBar.scss';
 export const MenuBar = () => {
     const startContent = (
         <div className='logo-container'>
-            <h1>Data check panel</h1>
+            <h1 className='logo-text'>Data check panel</h1>
         </div>
     );
 

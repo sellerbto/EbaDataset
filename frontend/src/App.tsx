@@ -1,19 +1,23 @@
 import 'primeflex/primeflex.css';
 import 'primeicons/primeicons.css';
+import { PrimeReactProvider } from 'primereact/api';
 import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
 import './app.scss';
-import MultipleColumnsDemo from './components/dataTable/dataTable';
+import MainDataTable from './components/dataTable/dataTable';
+import LinkDataTable from './components/dataTableSitelinks/dataTableSitelinks';
 import { MenuBar } from './components/menubar/menuBar';
 
 function App() {
     return (
         <>
-            <MenuBar />
-            <div className='main-content'>
-                <h2>Server Management</h2>
-                <MultipleColumnsDemo />
-            </div>
+            <PrimeReactProvider>
+                <MenuBar />
+                <div className='main-content'>
+                    <MainDataTable />
+                    <LinkDataTable />
+                </div>
+            </PrimeReactProvider>
         </>
     );
 }

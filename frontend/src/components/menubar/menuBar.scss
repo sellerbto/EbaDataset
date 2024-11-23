@@ -1,14 +1,15 @@
 .logo-container {
+    margin-left: 20px;
+    font-weight: 100;
     display: flex;
+}
+
+.logo-text {
+    margin-left: 20px;
+    color: #28a745;
     align-items: center;
-    margin-right: 20px;
-    margin-left: 40px;
-    color: #46c921;
 }
 
 .fixed-menubar {
-    position: fixed;
-    top: 0;
-    left: 0;
     width: 100%;
 }
