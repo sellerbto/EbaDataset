@@ -30,3 +30,6 @@ class ClientRequest(BaseRequest):
     last_access_date: datetime
     last_modification_date: datetime
 
+class UrlAndDescRequest(BaseRequest):
+    url: str
+    desc: str

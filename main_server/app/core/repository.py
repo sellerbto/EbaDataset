@@ -8,8 +8,8 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction
 
 
-from app.models import Dataset, DatasetUsageHistory, AccessRights, EventType
-from app.schemas.requests import ClientRequest
+from app.models import Dataset, DatasetUsageHistory, AccessRights, EventType, RemoteDataset
+from app.schemas.requests import ClientRequest, UrlAndDescRequest
 
 
 class DatasetRepository:
@@ -186,3 +186,20 @@ class DatasetUsageHistoryRepository:
         event_statistics = {event_type: count for event_type, count in result.fetchall()}
 
         return event_statistics
+
+
+class RemoteDatasetRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+
+    async def get_all_urls_and_descs(self):
+        stmt = select(RemoteDataset.url)
+
+        result = await self.session.execute(stmt)
+
+        return {url: desc for url, desc in result.fetchall()}
+
+
+    async def add_url_desc_pair(self, request: UrlAndDescRequest):
+        self.session.add(RemoteDataset(url=request.url, desc=request.desc))

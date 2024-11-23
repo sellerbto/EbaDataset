@@ -71,6 +71,11 @@ class RefreshToken(Base):
     user: Mapped["User"] = relationship(back_populates="refresh_tokens")
 
 
+class RemoteDataset(DeclarativeBase):
+    __tablename__ = "remote_datasets"
+    url: Mapped[str] = mapped_column(String(256), primary_key=True)
+    description: Mapped[str] = mapped_column(String(512), nullable=True)
+
 class Dataset(Base):
     __tablename__ = "dataset"
 
