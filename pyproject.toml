@@ -43,11 +43,14 @@ build-backend = "poetry.core.masonry.api"
 addopts = "-vv -n auto --cov --cov-report xml --cov-report term-missing --cov-fail-under=100"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_mode = "auto"
-testpaths = ["app/tests"]
+testpaths = ["main_server/app/tests"]
+pythonpath = [
+    "main_server/"
+]
 
 [tool.coverage.run]
 concurrency = ["gevent"]
-omit = ["app/tests/*"]
+omit = ["main_server/app/tests/*"]
 source = ["app"]
 
 [tool.mypy]
