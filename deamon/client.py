@@ -1,26 +1,13 @@
-from enum import Enum
+from deamon.base import CommandType, TrackingResult, TrackingStatus, ResponseFormatter
 import argparse
 import socket
-
-
-class CommandType(Enum):
-    ADD = "add"
-    REMOVE = "remove"
-    LIST = "list"
-    EXIT = "exit"
-
-    def __str__(self) -> str:
-        return self.name
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-    @staticmethod
-    def from_str(string: str) -> 'CommandType':
-        return CommandType(string)
+import os
 
 
 def send_command(cmd: CommandType, file_path=None) -> str:
+    if file_path and not os.path.exists(file_path):
+        return ResponseFormatter.make(cmd, TrackingResult(TrackingStatus.NOT_FOUND, file_path))
+
     try:
         with socket.create_connection(("localhost", 9999)) as sock:
             message = cmd.value
@@ -38,18 +25,19 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="a client for managing a file tracking server")
     subparsers = parser.add_subparsers(title="commands", dest="command", required=True)
 
-    add_parser = subparsers.add_parser(CommandType.ADD, help="add a tracking file")
+    add_parser = subparsers.add_parser("add", help="add a tracking file")
     add_parser.add_argument("file_path", type=str, help="the full path to the tracking file")
 
-    remove_parser = subparsers.add_parser(CommandType.REMOVE, help="remove a file from tracking")
+    remove_parser = subparsers.add_parser("remove", help="remove a file from tracking")
     remove_parser.add_argument("file_path", type=str, help="the full path to the file to remove from tracking")
 
-    list_parser = subparsers.add_parser(CommandType.LIST, help="list of all tracked files")
+    list_parser = subparsers.add_parser("list", help="list of all tracked files")
 
-    exit_parser = subparsers.add_parser(CommandType.EXIT, help="stop server")
+    exit_parser = subparsers.add_parser("exit", help="stop server")
 
     args = parser.parse_args()
-    print(send_command(CommandType.from_str(args.command), args.file_path if hasattr(args, 'file_path') else None))
+    response = send_command(CommandType(args.command), args.file_path if hasattr(args, 'file_path') else None)
+    print(response)
 
 
 if __name__ == "__main__":
