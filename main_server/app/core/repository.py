@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Sequence, cast
 
 from sqlalchemy import cast, DateTime
@@ -138,7 +138,7 @@ class DatasetUsageHistoryRepository:
 
         return event_statistics
 
-    async def get_events_statistic_by_time(self, host_name: str, dataset_name: str, timestamp: datetime):
+    async def get_events_statistic_by_time(self, host_name: str, dataset_name: str, timestamp: timedelta):
         stmt = select(
             DatasetUsageHistory.event_type,
             func.count(DatasetUsageHistory.event_type).label('event_count')
