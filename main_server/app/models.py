@@ -90,9 +90,8 @@ class Dataset(Base):
     last_accessed: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    access_rights: Mapped[AccessRights] = mapped_column(
-        Enum(AccessRights), nullable=False, default=AccessRights.PRIVATE
-    )
+
+
 
 
 class DatasetUsageHistory(Base):
