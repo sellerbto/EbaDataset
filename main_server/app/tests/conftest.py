@@ -1,19 +1,15 @@
-import asyncio
 import logging
 import os
 from collections.abc import AsyncGenerator
-from typing import Generator
 
 import pytest
 import pytest_asyncio
 import sqlalchemy
-import uvloop
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
 )
-
 
 from app.core import database_session
 from app.core.config import get_settings
