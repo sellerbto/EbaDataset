@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
+from pydantic import EmailStr
 
 
 class BaseRequest(BaseModel):
@@ -23,7 +24,8 @@ class UserCreateRequest(BaseRequest):
 
 class ClientRequest(BaseRequest):
     hostname: str
-    age: float
+    dataset_name: str
+    age: datetime
     access_rights: str
     last_access_date: datetime
     last_modification_date: datetime

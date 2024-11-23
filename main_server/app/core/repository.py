@@ -1,12 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional, Sequence, cast
 
+from sqlalchemy import cast, DateTime
+from sqlalchemy import func
+from sqlalchemy import update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.models import Dataset, DatasetUsageHistory, AccessRights, EventType
+from app.schemas.requests import ClientRequest
 
-from sqlalchemy import update, delete
-from typing import Optional, List
 
 class DatasetRepository:
     def __init__(self, session: AsyncSession):
@@ -29,7 +32,7 @@ class DatasetRepository:
         )
         return result.scalars().first()
 
-    async def get_all_datasets(self) -> List[Dataset]:
+    async def get_all_datasets(self) -> Sequence[Dataset]:
         result = await self.session.execute(select(Dataset))
         return result.scalars().all()
 
@@ -52,18 +55,7 @@ class DatasetUsageHistoryRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def add_usage_event(self, host_name: str, dataset_name: str, event_type: EventType, event_time: datetime):
-        usage_event = DatasetUsageHistory(
-            host_name=host_name,
-            dataset_name=dataset_name,
-            event_type=event_type,
-            event_time=event_time,
-        )
-        self.session.add(usage_event)
-        await self.session.commit()
-        return usage_event
-
-    async def get_usage_events_by_dataset(self, dataset_name: str) -> List[DatasetUsageHistory]:
+    async def get_usage_events_by_dataset(self, dataset_name: str) -> Sequence[DatasetUsageHistory]:
         result = await self.session.execute(
             select(DatasetUsageHistory)
             .where(DatasetUsageHistory.dataset_name == dataset_name)
@@ -71,7 +63,7 @@ class DatasetUsageHistoryRepository:
         )
         return result.scalars().all()
 
-    async def get_usage_events_by_host(self, host_name: str) -> List[DatasetUsageHistory]:
+    async def get_usage_events_by_host(self, host_name: str) -> Sequence[DatasetUsageHistory]:
         result = await self.session.execute(
             select(DatasetUsageHistory)
             .where(DatasetUsageHistory.host_name == host_name)
@@ -84,3 +76,64 @@ class DatasetUsageHistoryRepository:
             delete(DatasetUsageHistory).where(DatasetUsageHistory.event_time < timestamp)
         )
         await self.session.commit()
+
+
+    async def add_event(self, client_request: ClientRequest):
+        event_types = [
+            EventType.READ,
+            EventType.MODIFY,
+            EventType.CREATE
+        ]
+
+        event_times = [
+            client_request.last_access_date,
+            client_request.last_modification_date,
+            client_request.age
+        ]
+
+        event_added = False
+
+        for event_type, event_time in zip(event_types, event_times):
+            stmt = select(DatasetUsageHistory).filter(
+                DatasetUsageHistory.host_name == client_request.hostname,
+                DatasetUsageHistory.dataset_name == client_request.dataset_name,
+                # cast(DatasetUsageHistory.event_type, String) == str(event_type.value),
+                DatasetUsageHistory.event_time == cast(event_time.replace(tzinfo=None), DateTime)
+            )
+
+            result = await self.session.execute(stmt)
+            length = len(result.scalars().all())
+            print(f'LENGTH - {length}')
+            if length == 0:
+                event_added = True
+                new_event = DatasetUsageHistory(
+                    host_name=client_request.hostname,
+                    dataset_name=client_request.dataset_name,
+                    event_type=event_type,
+                    event_time=(
+                        datetime.fromtimestamp(event_time, tz=timezone.utc).replace(tzinfo=None)
+                        if isinstance(event_time, float)
+                        else event_time.replace(tzinfo=None) if isinstance(event_time, datetime) and event_time.tzinfo
+                        else event_time
+                    )
+                )
+                self.session.add(new_event)
+        await self.session.commit()
+        return event_added
+
+    async def get_events_statistic(self, host_name: str, dataset_name: str):
+        stmt = select(
+            DatasetUsageHistory.event_type,
+            func.count(DatasetUsageHistory.event_type).label('event_count')
+        ).filter(
+            DatasetUsageHistory.host_name == host_name,
+            DatasetUsageHistory.dataset_name == dataset_name
+        ).group_by(DatasetUsageHistory.event_type)
+
+        # Выполняем запрос
+        result = await self.session.execute(stmt)
+
+        # Преобразуем результат в словарь
+        event_statistics = {event_type: count for event_type, count in result.fetchall()}
+
+        return event_statistics

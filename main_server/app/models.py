@@ -18,7 +18,7 @@ from datetime import datetime
 from enum import Enum as PyEnum
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, Uuid, func
-from sqlalchemy import Enum
+from sqlalchemy import Enum, TIMESTAMP
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -104,6 +104,4 @@ class DatasetUsageHistory(Base):
     event_type: Mapped[EventType] = mapped_column(
         Enum(EventType), nullable=False
     )
-    event_time: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    event_time: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=False)
