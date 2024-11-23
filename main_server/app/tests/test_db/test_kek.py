@@ -12,7 +12,7 @@ from app.models import EventType
 from app.main import app
 from app.models import DatasetUsageHistory
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_get_statistic(session: AsyncSession) -> None:
     dataset_name = "test_dataset"
     host_name = "test_host"
