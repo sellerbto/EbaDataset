@@ -87,7 +87,7 @@ class FileObserver:
             for file_path in handler.file_paths:
                 print(f" - {file_path}")
 
-    def stop_all(self):
+    def stop_all(self) -> None:
         for dir_path in self.handlers.keys():
             self._remove_handler(dir_path)
 
