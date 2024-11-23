@@ -1,4 +1,6 @@
+import socket
 from watchdog.observers import Observer
+from main_server.app.schemas.requests import ClientRequest
 from watchdog.events import FileSystemEventHandler, DirModifiedEvent, FileModifiedEvent, DirDeletedEvent, \
     FileDeletedEvent
 from deamon.base import TrackingResult, TrackingStatus, ListTrackedResult
@@ -7,15 +9,16 @@ import time
 import os
 
 
-def get_metadata(file_path: str) -> Dict:
+def get_metadata(file_path: str) -> ClientRequest:
     stats = os.stat(file_path)
-    return {
-        "size": stats.st_size,
-        "age": time.time() - stats.st_ctime,
-        "access": oct(stats.st_mode)[-3:],
-        "request": time.ctime(stats.st_ctime),
-        "modified": time.ctime(stats.st_mtime),
-    }
+    client_response = ClientRequest(
+        hostname=socket.gethostname(),
+        age=stats.st_ctime,
+        access=oct(stats.st_mode)[-3:],
+        last_access=time.ctime(stats.st_ctime),
+        last_modified=time.ctime(stats.st_mtime),
+    )
+    return client_response
 
 
 class DirectoryHandler(FileSystemEventHandler):
