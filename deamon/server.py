@@ -44,7 +44,7 @@ async def handle_client(reader, writer, file_observer: DirectoryTrackerManager, 
 
 
 HOST_NAME = "localhost"
-PORT = 9999
+PORT = 9998
 
 
 async def main() -> None:

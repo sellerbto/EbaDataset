@@ -9,7 +9,7 @@ def send_command(cmd: CommandType, file_path=None) -> str:
         return ResponseFormatter.make(cmd, TrackingResult(TrackingStatus.NOT_FOUND, file_path))
 
     try:
-        with socket.create_connection(("localhost", 9999)) as sock:
+        with socket.create_connection(("localhost", 9998)) as sock:
             message = cmd.value
             if file_path:
                 message += f" {file_path}"
