@@ -1,15 +1,14 @@
+import os
 import socket
 from datetime import datetime, timezone
+from typing import Set, Dict, List
 
-from watchdog.observers import Observer
-from main_server.app.schemas.requests import ClientRequest
+import requests
 from watchdog.events import FileSystemEventHandler, DirModifiedEvent, FileModifiedEvent, DirDeletedEvent, \
     FileDeletedEvent
+from watchdog.observers import Observer
+
 from deamon.base import TrackingResult, TrackingStatus, ListTrackedResult
-from typing import Set, Dict, List
-import requests
-import time
-import os
 
 
 def format_timestamp_to_iso8601(timestamp):
