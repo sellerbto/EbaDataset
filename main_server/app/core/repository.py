@@ -3,7 +3,7 @@ from typing import Optional, Sequence, cast
 
 from sqlalchemy import cast, DateTime
 from sqlalchemy import func
-from sqlalchemy import update, delete
+from sqlalchemy import update, delete, exists
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction
 
@@ -97,17 +97,16 @@ class DatasetUsageHistoryRepository:
             event_added = False
 
             for event_type, event_time in zip(event_types, event_times):
-                stmt = select(DatasetUsageHistory).filter(
+                stmt = select(exists().where(
                     DatasetUsageHistory.host_name == client_request.hostname,
                     DatasetUsageHistory.dataset_name == client_request.dataset_name,
                     DatasetUsageHistory.event_type == event_type,
                     DatasetUsageHistory.event_time == cast(event_time.replace(tzinfo=None), DateTime)
-                )
+                ))
 
                 result = await transaction.session.execute(stmt)
-                length = len(result.scalars().all())
-                print(f'LENGTH - {length}')
-                if length == 0:
+                exists_flag = result.scalar()
+                if not exists_flag:
                     event_added = True
                     new_event = DatasetUsageHistory(
                         host_name=client_request.hostname,

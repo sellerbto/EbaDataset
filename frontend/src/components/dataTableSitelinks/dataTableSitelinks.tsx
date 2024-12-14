@@ -1,4 +1,3 @@
-// src/components/dataTableSitelinks/LinkDataTable.tsx
 import 'primeicons/primeicons.css';
 import { Button } from 'primereact/button';
 import { Column, ColumnEditorOptions, ColumnEvent } from 'primereact/column';
@@ -8,112 +7,35 @@ import { InputText } from 'primereact/inputtext';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
-import { useContext, useEffect, useState } from 'react';
-import { ToastContext } from '../../context/toastContext';
-import { linkService } from '../../services/linkService';
-import { LinkData } from '../../types/link';
+import { useAppDispatch, useAppSelector } from '../../store';
+import { updateLink, deleteLink } from '../../store/linksSlice';
 import './dataTableSitelinks.scss';
 
-const LinkDataTable: React.FC = () => {
-    const [links, setLinks] = useState<LinkData[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const toastContext = useContext(ToastContext);
+const LinkDataTable = () => {
+    const dispatch = useAppDispatch();
+    const links = useAppSelector((state) => state.currentLinks);
+    const loading = useAppSelector((state) => state.currentLinks);
 
-    useEffect(() => {
-        linkService
-            .getLinks()
-            .then((fetchedLinks: LinkData[]) => {
-                setLinks(fetchedLinks);
-                setLoading(false);
-            })
-            .catch(() => {
-                setLoading(false);
-                toastContext?.show({
-                    severity: 'error',
-                    summary: 'Ошибка',
-                    detail: 'Не удалось загрузить ссылки.',
-                    life: 3000,
-                });
-            });
-    }, [toastContext]);
 
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
 
         if (typeof newValue === 'string' && newValue.trim().length === 0) {
             event.preventDefault();
-            toastContext?.show({
-                severity: 'warn',
-                summary: 'Предупреждение',
-                detail: `Поле "${field}" не может быть пустым.`,
-                life: 3000,
-            });
+            console.warn(`Field "${field}" cannot be empty.`);
             return;
         }
 
-        const updatedLink: LinkData = { ...rowData, [field]: newValue };
-
-        linkService
-            .updateLink(updatedLink)
-            .then((updated: LinkData) => {
-                setLinks(prevLinks =>
-                    prevLinks.map(link =>
-                        link.id === updated.id ? updated : link
-                    )
-                );
-                toastContext?.show({
-                    severity: 'success',
-                    summary: 'Успех',
-                    detail: 'Ссылка успешно обновлена.',
-                    life: 3000,
-                });
-            })
-            .catch(() => {
-                toastContext?.show({
-                    severity: 'error',
-                    summary: 'Ошибка',
-                    detail: 'Не удалось обновить ссылку.',
-                    life: 3000,
-                });
-            });
+        const updatedLink = { ...rowData, [field]: newValue };
+        dispatch(updateLink(updatedLink));
     };
 
-    const confirmDelete = (rowData: LinkData) => {
+    const confirmDelete = (rowData: { id: string; name: string }) => {
         confirmDialog({
             message: `Вы уверены, что хотите удалить ссылку "${rowData.name}"?`,
             header: 'Подтверждение удаления',
             icon: 'pi pi-exclamation-triangle',
-            accept: () => {
-                linkService
-                    .deleteLink(rowData.id)
-                    .then(() => {
-                        setLinks(prevLinks =>
-                            prevLinks.filter(link => link.id !== rowData.id)
-                        );
-                        toastContext?.show({
-                            severity: 'success',
-                            summary: 'Успех',
-                            detail: 'Ссылка успешно удалена.',
-                            life: 3000,
-                        });
-                    })
-                    .catch(() => {
-                        toastContext?.show({
-                            severity: 'error',
-                            summary: 'Ошибка',
-                            detail: 'Не удалось удалить ссылку.',
-                            life: 3000,
-                        });
-                    });
-            },
-            reject: () => {
-                toastContext?.show({
-                    severity: 'info',
-                    summary: 'Отменено',
-                    detail: 'Удаление ссылки отменено.',
-                    life: 3000,
-                });
-            },
+            accept: () => dispatch(deleteLink(rowData.id)),
         });
     };
 
@@ -130,13 +52,13 @@ const LinkDataTable: React.FC = () => {
 
     const cellEditor = (options: ColumnEditorOptions) => textEditor(options);
 
-    const linkBodyTemplate = (rowData: LinkData) => (
+    const linkBodyTemplate = (rowData: { url: string }) => (
         <a href={rowData.url} target='_blank' rel='noopener noreferrer'>
             {rowData.url}
         </a>
     );
 
-    const deleteBodyTemplate = (rowData: LinkData) => (
+    const deleteBodyTemplate = (rowData: { id: string; name: string }) => (
         <Button
             icon='pi pi-trash'
             className='p-button-danger p-button-sm'
@@ -149,16 +71,19 @@ const LinkDataTable: React.FC = () => {
         />
     );
 
-    return (
-        <div className='table-container'>
-            {loading ? (
-                <div
-                    className='loading-container'
-                    style={{ textAlign: 'center', padding: '2rem' }}
-                >
+
+    if (loading) {
+        return (
+            <div className = 'table-container' >
+                <div className='loading-container' style={{ textAlign: 'center', padding: '2rem' }}>
                     <ProgressSpinner />
                 </div>
-            ) : (
+            </div>
+        )
+    }
+
+    return (
+        <div className='table-container'>
                 <DataTable
                     value={links}
                     sortMode='multiple'
@@ -196,7 +121,6 @@ const LinkDataTable: React.FC = () => {
                         style={{ width: '5%', textAlign: 'center' }}
                     />
                 </DataTable>
-            )}
         </div>
     );
 };
