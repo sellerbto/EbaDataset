@@ -1,3 +1,4 @@
+from itertools import count
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Sequence, cast
 
@@ -211,5 +212,6 @@ class RemoteDatasetRepository:
     async def remove_url_desc_pair(self, request: RmUrlRequest):
         async with self.session.begin_nested() as transaction:
             stmt = delete(RemoteDataset).where(RemoteDataset.id == request.id)
-            await transaction.session.execute(stmt)
+            result = await transaction.session.execute(stmt)
             await transaction.commit()
+            result.one_or_none()
