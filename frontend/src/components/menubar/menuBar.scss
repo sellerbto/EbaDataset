@@ -1,14 +1,36 @@
+.menubar-wrapper {
+    .p-menubar {
+        background: #f8f9fa;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        padding: 0 2rem;
+        min-height: 4rem;
+        display: flex;
+        align-items: center;
+    }
+}
+
 .logo-container {
-    margin-left: 20px;
-    font-weight: 100;
     display: flex;
+    align-items: center;
+    .logo-text {
+        margin: 0;
+        font-size: 1.5rem;
+        color: #4f4f4f;
+        font-weight: 600;
+        transition: color 0.3s ease;
+
+        &:hover {
+            color: #007ad9;
+        }
+    }
 }
 
-.logo-text {
-    margin-left: 20px;
-    color: #28a745;
-}
+.end-content {
+    display: flex;
+    align-items: center;
 
-.fixed-menubar {
-    width: 100%;
+    .p-button {
+        font-size: 0.9rem;
+        margin-left: 0.5rem;
+    }
 }
