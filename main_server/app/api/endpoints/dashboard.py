@@ -13,7 +13,7 @@ from app.api import deps
 from typing import List, Dict
 from calendar import month
 from email.charset import add_charset
-from main_server.app.schemas.requests import UrlAndDescRequest
+from app.schemas.requests import UrlAndDescRequest
 
 router = APIRouter()
 
