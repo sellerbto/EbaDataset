@@ -13,7 +13,7 @@ from app.api import deps
 from typing import List, Dict
 from calendar import month
 from email.charset import add_charset
-from app.schemas.requests import UrlAndDescRequest
+from app.schemas.requests import RmUrlRequest, UrlAndDescRequest
 
 router = APIRouter()
 
@@ -46,7 +46,7 @@ async def get_datasets_info(
     return infos
 
 
-@router.post("/post_remote_dataset", status_code=200, description="remote dataset")
+@router.post("/post_remote_dataset", status_code=200, description="add remote dataset")
 async def post_remote_dataset(
     request: UrlAndDescRequest,
     session: AsyncSession = Depends(deps.get_session)
@@ -59,10 +59,21 @@ async def post_remote_dataset(
         await repository.add_url_desc_pair(request)
 
 
+
+@router.post("/remove_remote_dataset", status_code=200, description="remove remote dataset")
+async def remove_remote_dataset(
+    request: RmUrlRequest,
+    session: AsyncSession = Depends(deps.get_session)
+    ) -> None :
+
+        repository = RemoteDatasetRepository(session)
+
+        await repository.remove_url_desc_pair(request)
+
 @router.get("/get_remote_datasets", status_code=200, description="all remote datasets")
 async def get_all_remote_datasets(
     session: AsyncSession = Depends(deps.get_session)
-) -> Dict[str, str] :
+) :
     repository = RemoteDatasetRepository(session)
 
     result = await repository.get_all_urls_and_descs()

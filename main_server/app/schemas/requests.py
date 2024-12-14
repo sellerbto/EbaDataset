@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Strict
 from pydantic import EmailStr
 
 
@@ -31,5 +31,9 @@ class ClientRequest(BaseRequest):
     last_modification_date: datetime
 
 class UrlAndDescRequest(BaseRequest):
+    name: str
     url: str
     desc: str
+
+class RmUrlRequest(BaseRequest):
+    id: str

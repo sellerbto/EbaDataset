@@ -1,5 +1,8 @@
+from itertools import count
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Sequence, cast
+
+import uuid
 
 from sqlalchemy import cast, DateTime
 from sqlalchemy import func
@@ -9,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction
 
 
 from app.models import Dataset, DatasetUsageHistory, AccessRights, EventType, RemoteDataset
-from app.schemas.requests import ClientRequest, UrlAndDescRequest
+from app.schemas.requests import ClientRequest, UrlAndDescRequest, RmUrlRequest
 
 
 class DatasetRepository:
@@ -193,12 +196,21 @@ class RemoteDatasetRepository:
 
 
     async def get_all_urls_and_descs(self):
-        stmt = select(RemoteDataset.url)
+        stmt = select(RemoteDataset.id)
 
         result = await self.session.execute(stmt)
 
-        return {url: desc for url, desc in result.fetchall()}
+        return {(name, url, desc) for id, name, url, desc in result.fetchall()}
 
 
     async def add_url_desc_pair(self, request: UrlAndDescRequest):
-        self.session.add(RemoteDataset(url=request.url, desc=request.desc))
+         async with self.session.begin_nested() as transaction:
+            transaction.session.add(RemoteDataset(id=str(uuid.uuid4()), name=request.name, url=request.url, desc=request.desc))
+            await transaction.commit()
+
+    async def remove_url_desc_pair(self, request: RmUrlRequest):
+        async with self.session.begin_nested() as transaction:
+            stmt = delete(RemoteDataset).where(RemoteDataset.id == request.id)
+            result = await transaction.session.execute(stmt)
+            await transaction.commit()
+            result.one_or_none()
