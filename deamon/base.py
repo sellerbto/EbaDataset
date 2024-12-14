@@ -1,6 +1,6 @@
-from dataclasses import dataclass
-from enum import Enum, auto
-from typing import List
+from enum import Enum
+
+from results import TrackingResult, TrackingStatus, ListTrackedResult
 
 
 class CommandType(Enum):
@@ -9,23 +9,6 @@ class CommandType(Enum):
     LIST = "list"
     EXIT = "exit"
 
-
-class TrackingStatus(Enum):
-    IN_PROGRESS = auto()
-    COMPLETED = auto()
-    ALREADY = auto()
-    NOT_FOUND = auto()
-
-
-@dataclass
-class TrackingResult:
-    status: TrackingStatus
-    file_path: str | None
-
-
-@dataclass
-class ListTrackedResult:
-    list: List[str]
 
 
 class ResponseFormatter:
@@ -52,4 +35,5 @@ class ResponseFormatter:
         elif isinstance(result, ListTrackedResult):
             return '\n'.join(["Tracked files:"] + list(map(lambda file_path: "- " + file_path, result.list)))
         else:
+            print(type(result))
             raise ValueError()
