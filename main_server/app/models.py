@@ -73,7 +73,8 @@ class RefreshToken(Base):
 
 class RemoteDataset(Base):
     __tablename__ = "remote_datasets"
-    url: Mapped[str] = mapped_column(String(256), primary_key=True)
+    id: Mapped[str] = mapped_column(String(256), primary_key=True)
+    url: Mapped[str] = mapped_column(String(256))
     description: Mapped[str] = mapped_column(String(512), nullable=True)
 
 class Dataset(Base):

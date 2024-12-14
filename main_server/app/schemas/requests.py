@@ -33,3 +33,6 @@ class ClientRequest(BaseRequest):
 class UrlAndDescRequest(BaseRequest):
     url: str
     desc: str
+
+class RmUrlRequest(BaseRequest):
+    id: str
