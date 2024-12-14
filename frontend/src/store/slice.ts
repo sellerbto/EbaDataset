@@ -1,7 +1,7 @@
 import {createSlice, PayloadAction} from "@reduxjs/toolkit";
 import {LinkData} from "../types/link.ts";
 import {Resource} from "../types/resource.ts";
-import {fetchLinks} from "./api-actions.ts";
+import {deleteLink, fetchLinks, updateLink} from "./api-actions.ts";
 
 interface EbaDatasetState {
   currentLinks: LinkData[];
@@ -36,9 +36,17 @@ const ebaDatasetSlice = createSlice({
     builder.addCase(fetchLinks.pending, (state) => {
       state.linksLoading = true;
     });
+    builder.addCase(updateLink.fulfilled, (state, action) => {
+      state.currentLinks = action.payload;
+      state.linksLoading = false;
+    });
+    builder.addCase(deleteLink.fulfilled, (state, action) => {
+      state.currentLinks = action.payload;
+      state.linksLoading = false;
+    })
   }
 });
 
 
-export const {} = ebaDatasetSlice.actions;
+export const {setErrorMessage} = ebaDatasetSlice.actions;
 export default ebaDatasetSlice.reducer;

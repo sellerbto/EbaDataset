@@ -8,8 +8,8 @@ import { ProgressSpinner } from 'primereact/progressspinner';
 import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
 import { useAppDispatch, useAppSelector } from '../../store';
-import { updateLink, deleteLink } from '../../store/linksSlice';
 import './dataTableSitelinks.scss';
+import {deleteLink, updateLink} from "../../store/api-actions.ts";
 
 const LinkDataTable = () => {
     const dispatch = useAppDispatch();
