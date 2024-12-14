@@ -200,12 +200,12 @@ class RemoteDatasetRepository:
 
         result = await self.session.execute(stmt)
 
-        return {id: (url, desc) for id, url, desc in result.fetchall()}
+        return {(name, url, desc) for id, name, url, desc in result.fetchall()}
 
 
     async def add_url_desc_pair(self, request: UrlAndDescRequest):
          async with self.session.begin_nested() as transaction:
-            transaction.session.add(RemoteDataset(id=str(uuid.uuid4()), url=request.url, desc=request.desc))
+            transaction.session.add(RemoteDataset(id=str(uuid.uuid4()), name=request.name, url=request.url, desc=request.desc))
             await transaction.commit()
 
     async def remove_url_desc_pair(self, request: RmUrlRequest):
