@@ -1,34 +1,42 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Sequence, cast
+from typing import Optional, Sequence, List
 
-from sqlalchemy import cast, DateTime
 from sqlalchemy import func
 from sqlalchemy import update, delete
 from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Dataset, DatasetUsageHistory, AccessRights, EventType, RemoteDataset
-from app.schemas.requests import ClientRequest, UrlAndDescRequest
+from app.models import Dataset, DatasetUsageHistory, EventType, Link
+from app.schemas.requests import DaemonClientRequest, LinkDescriptionUpdateRequest
 
 
 class DatasetRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create_dataset(self, name: str, size: int, created_at_device: datetime, access_rights: AccessRights):
+    async def create_dataset(
+            self,
+            name: str,
+            size: int,
+            created_at_device: datetime,
+            access_rights: str,
+            host: str,
+    ):
         dataset = Dataset(
             name=name,
             size=size,
             created_at_device=created_at_device,
             access_rights=access_rights,
+            host=host,
         )
         self.session.add(dataset)
         await self.session.commit()
         return dataset
 
-    async def get_dataset_by_id(self, dataset_id: int) -> Optional[Dataset]:
+    async def get_dataset_by(self, dataset_name: str, dataset_host: str) -> Optional[Dataset]:
         result = await self.session.execute(
-            select(Dataset).where(Dataset.id == dataset_id)
+            select(Dataset).where(DatasetUsageHistory.host_name == dataset_host,
+            DatasetUsageHistory.dataset_name == dataset_name)
         )
         return result.scalars().first()
 
@@ -36,11 +44,18 @@ class DatasetRepository:
         result = await self.session.execute(select(Dataset))
         return result.scalars().all()
 
-    async def update_dataset(self, dataset_id: int, **kwargs):
+    async def update_dataset(
+            self,
+            dataset_id: int,
+            size: int,
+            access_rights: str,
+    ):
+        updated_values = {"size": size, "access_rights": access_rights}
+
         await self.session.execute(
             update(Dataset)
             .where(Dataset.id == dataset_id)
-            .values(**kwargs)
+            .values(**updated_values)
         )
         await self.session.commit()
 
@@ -77,7 +92,7 @@ class DatasetUsageHistoryRepository:
         )
         await self.session.commit()
 
-    async def add_event(self, client_request: ClientRequest):
+    async def add_event(self, client_request: DaemonClientRequest):
         event_types = [
             EventType.READ,
             EventType.MODIFY,
@@ -171,17 +186,49 @@ class DatasetUsageHistoryRepository:
         event_statistics = {event_type: count for event_type, count in result.fetchall()}
         return event_statistics
 
+    async def get_latest_events(self, dataset_name: str) -> dict:
+        """
+        Fetch the latest READ and MODIFY events for a given dataset.
+        """
+        stmt = select(
+            DatasetUsageHistory.event_type,
+            func.max(DatasetUsageHistory.event_time).label("latest_event_time")
+        ).filter(
+            DatasetUsageHistory.dataset_name == dataset_name
+        ).group_by(DatasetUsageHistory.event_type)
 
-class RemoteDatasetRepository:
+        result = await self.session.execute(stmt)
+        # Convert results into a dictionary for easier access
+        latest_events = {row.event_type: row.latest_event_time for row in result.fetchall()}
+        return latest_events
+
+
+class LinkRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all_urls_and_descs(self):
-        stmt = select(RemoteDataset.url)
-
+    async def get_all_urls(self) -> List[Link]:
+        stmt = select(Link)
         result = await self.session.execute(stmt)
+        links = list(result.scalars().fetchall())
+        return links
 
-        return {url: desc for url, desc in result.fetchall()}
+    async def add_or_update_url(self, request: LinkDescriptionUpdateRequest) -> List[Link]:
+        stmt = select(Link).where(Link.url == str(request.url))
+        result = await self.session.execute(stmt)
+        existing_link = result.scalars().first()
 
-    async def add_url_desc_pair(self, request: UrlAndDescRequest):
-        self.session.add(RemoteDataset(url=request.url, desc=request.desc))
+        if existing_link:
+            existing_link.description = request.description
+            existing_link.name = request.name
+        else:
+            self.session.add(Link(url=str(request.url), description=request.description, name=request.name))
+
+        await self.session.commit()
+        return await self.get_all_urls()
+
+    async def delete_link(self, url: str) -> List[Link]:
+        stmt = delete(Link).where(Link.url == url)
+        await self.session.execute(stmt)
+        await self.session.commit()
+        return await self.get_all_urls()

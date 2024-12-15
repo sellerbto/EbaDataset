@@ -22,11 +22,6 @@ from sqlalchemy import Enum, TIMESTAMP
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
-class AccessRights(PyEnum):
-    PUBLIC = "public"
-    PRIVATE = "private"
-    RESTRICTED = "restricted"
-
 class EventType(PyEnum):
     MODIFY = "modify"
     READ = "read"
@@ -71,33 +66,27 @@ class RefreshToken(Base):
     user: Mapped["User"] = relationship(back_populates="refresh_tokens")
 
 
-class RemoteDataset(Base):
-    __tablename__ = "remote_datasets"
+class Link(Base):
+    __tablename__ = "link"
     url: Mapped[str] = mapped_column(String(256), primary_key=True)
-    description: Mapped[str] = mapped_column(String(512), nullable=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=True)
+    description: Mapped[str] = mapped_column(String(1024), nullable=True)
 
 class Dataset(Base):
     __tablename__ = "dataset"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    name: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    access_rights: Mapped[str] = mapped_column(String(3), nullable=False)
     size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     host: Mapped[str] = mapped_column(String(256), nullable=False)
+    description: Mapped[str] = mapped_column(String(1024), nullable=True)
     created_at_device: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
     created_at_server: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    last_modified: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
-    )
-    last_accessed: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-
-
-
 
 class DatasetUsageHistory(Base):
     __tablename__ = "dataset_usage_history"

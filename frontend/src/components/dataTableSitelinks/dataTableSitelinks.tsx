@@ -9,13 +9,18 @@ import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
 import { useAppDispatch, useAppSelector } from '../../store';
 import './dataTableSitelinks.scss';
-import {deleteLink, updateLink} from "../../store/api-actions.ts";
+import {deleteLink, createOrUpdateLink, fetchLinks} from "../../store/api-actions.ts";
+import {LinkData} from "../../types/link.ts";
+import {useEffect} from "react";
 
 const LinkDataTable = () => {
     const dispatch = useAppDispatch();
     const links = useAppSelector((state) => state.currentLinks);
-    const loading = useAppSelector((state) => state.currentLinks);
+    const loading = useAppSelector((state) => state.linksLoading);
 
+    useEffect(() => {
+        dispatch(fetchLinks());
+    }, []);
 
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
@@ -26,16 +31,16 @@ const LinkDataTable = () => {
             return;
         }
 
-        const updatedLink = { ...rowData, [field]: newValue };
-        dispatch(updateLink(updatedLink));
+        const updatedLink: LinkData = { ...rowData, [field]: newValue };
+        dispatch(createOrUpdateLink(updatedLink));
     };
 
-    const confirmDelete = (rowData: { id: string; name: string }) => {
+    const confirmDelete = (rowData: { url: string; name: string }) => {
         confirmDialog({
             message: `Вы уверены, что хотите удалить ссылку "${rowData.name}"?`,
             header: 'Подтверждение удаления',
             icon: 'pi pi-exclamation-triangle',
-            accept: () => dispatch(deleteLink(rowData.id)),
+            accept: () => dispatch(deleteLink(rowData.url)),
         });
     };
 
@@ -58,7 +63,7 @@ const LinkDataTable = () => {
         </a>
     );
 
-    const deleteBodyTemplate = (rowData: { id: string; name: string }) => (
+    const deleteBodyTemplate = (rowData: { url: string; name: string }) => (
         <Button
             icon='pi pi-trash'
             className='p-button-danger p-button-sm'
@@ -84,42 +89,11 @@ const LinkDataTable = () => {
 
     return (
         <div className='table-container'>
-                <DataTable
-                    value={links}
-                    sortMode='multiple'
-                    paginator
-                    rows={10}
-                    tableStyle={{ minWidth: '50rem' }}
-                    editMode='cell'
-                >
-                    <Column
-                        field='name'
-                        header='Название'
-                        sortable
-                        style={{ width: '25%' }}
-                        editor={cellEditor}
-                        onCellEditComplete={onCellEditComplete}
-                    />
-                    <Column
-                        field='url'
-                        header='Ссылка'
-                        sortable
-                        style={{ width: '25%' }}
-                        body={linkBodyTemplate}
-                    />
-                    <Column
-                        field='description'
-                        header='Описание'
-                        sortable
-                        style={{ width: '45%' }}
-                        editor={cellEditor}
-                        onCellEditComplete={onCellEditComplete}
-                    />
-                    <Column
-                        header='Delete'
-                        body={deleteBodyTemplate}
-                        style={{ width: '5%', textAlign: 'center' }}
-                    />
+                <DataTable value={links} sortMode='multiple' paginator rows={10} tableStyle={{ minWidth: '50rem' }} editMode='cell'>
+                    <Column field='name' header='Название' sortable style={{ width: '25%' }} editor={cellEditor} onCellEditComplete={onCellEditComplete}/>
+                    <Column field='url' header='Ссылка' sortable style={{ width: '25%' }} body={linkBodyTemplate}/>
+                    <Column field='description' header='Описание' sortable style={{ width: '45%' }} editor={cellEditor} onCellEditComplete={onCellEditComplete}/>
+                    <Column header='Delete' body={deleteBodyTemplate} style={{ width: '5%', textAlign: 'center' }}/>
                 </DataTable>
         </div>
     );

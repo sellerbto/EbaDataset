@@ -59,7 +59,6 @@ async def test_get_statistic(client: AsyncClient, session: AsyncSession, default
 
     assert response.status_code == status.HTTP_200_OK
     stats = response.json()
-    print(f'PIDARAS - {stats}')
     assert "read" in stats
     assert stats["read"] > 0  # Убедимся, что подсчитан хотя бы 1 READ
 

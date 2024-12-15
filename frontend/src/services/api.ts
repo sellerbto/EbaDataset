@@ -3,7 +3,7 @@ import {getToken} from './token.ts';
 import {StatusCodes} from 'http-status-codes';
 import {processErrorHandle} from './process-error-handle.ts';
 
-const BACKEND_URL = 'https://localhost:8000/dashboard';
+const BACKEND_URL = 'http://localhost:8000/dashboard';
 const REQUEST_TIMEOUT = 5000;
 
 type DetailMessageType = {

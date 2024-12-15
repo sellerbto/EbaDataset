@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel
-from pydantic import EmailStr
+from pydantic import EmailStr, HttpUrl
 
 
 class BaseRequest(BaseModel):
@@ -22,14 +23,16 @@ class UserCreateRequest(BaseRequest):
     password: str
 
 
-class ClientRequest(BaseRequest):
+class DaemonClientRequest(BaseRequest):
     hostname: str
     dataset_name: str
     age: datetime
     access_rights: str
     last_access_date: datetime
     last_modification_date: datetime
+    size: int
 
-class UrlAndDescRequest(BaseRequest):
-    url: str
-    desc: str
+class LinkDescriptionUpdateRequest(BaseModel):
+    url: HttpUrl
+    name: Optional[str] = None
+    description: Optional[str] = None

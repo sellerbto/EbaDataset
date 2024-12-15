@@ -24,13 +24,14 @@ def get_metadata(file_path: str) -> Dict:
         "access_rights": oct(stats.st_mode)[-3:],
         "last_access_date": format_timestamp_to_iso8601(stats.st_atime),
         "last_modification_date": format_timestamp_to_iso8601(stats.st_mtime),
+        "size": stats.st_size,
     }
     return client_response
 
 
 def send_metadata_to_server(metadata: Dict) -> None:
     try:
-        response = requests.put("http://127.0.0.1:8000/dataset/add_event", json=metadata)
+        response = requests.post("http://127.0.0.1:8000/client/add_event", json=metadata)
         if response.status_code == 200:
             print(f"Метаданные успешно отправлены: {metadata["dataset_name"]}")
         else:

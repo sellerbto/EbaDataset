@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, HttpUrl
 from datetime import datetime
 
 class BaseResponse(BaseModel):
@@ -12,10 +12,14 @@ class AccessTokenResponse(BaseResponse):
     refresh_token: str
     refresh_token_expires_at: int
 
-
 class UserResponse(BaseResponse):
     user_id: str
     email: EmailStr
+
+class LinkResponse(BaseResponse):
+    url: HttpUrl
+    name: str
+    description: str
 
 class DatasetInfo(BaseResponse):
     name: str

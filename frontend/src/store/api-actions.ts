@@ -17,19 +17,10 @@ export const fetchLinks = createAsyncThunk<LinkData[], undefined, {
   },
 );
 
-export const clearErrorAction = createAsyncThunk<void, undefined, {
-  dispatch: AppDispatch;
-}>(
-  'clearError',
-  async (_arg, {dispatch}) => {
-    await new Promise((_) => setTimeout(_, TIMEOUT_SHOW_ERROR)).then(() => dispatch(setErrorMessage(null)));
-  },
-);
-
-export const updateLink = createAsyncThunk<LinkData[], LinkData, {
+export const createOrUpdateLink = createAsyncThunk<LinkData[], LinkData, {
   extra: AxiosInstance;
 }>(
-  'updateLink',
+  'createOrUpdateLink',
   async (linkData, {extra: api}) => {
     const {data} = await api.post<LinkData[]>(ApiRoute.Links, linkData);
     return data;
@@ -40,9 +31,17 @@ export const deleteLink = createAsyncThunk<LinkData[], string, {
   extra: AxiosInstance;
 }>(
   'deleteLink',
-  async (id, {extra: api}) => {
-    const {data} = await api.delete<LinkData[]>(`ApiRoute.Links/${id}`);
+  async (link_url, {extra: api}) => {
+    const {data} = await api.delete<LinkData[]>(ApiRoute.Links, { params: { link_url: link_url }});
     return data;
   },
 );
 
+export const clearErrorAction = createAsyncThunk<void, undefined, {
+  dispatch: AppDispatch;
+}>(
+  'clearError',
+  async (_arg, {dispatch}) => {
+    await new Promise((_) => setTimeout(_, TIMEOUT_SHOW_ERROR)).then(() => dispatch(setErrorMessage(null)));
+  },
+);
