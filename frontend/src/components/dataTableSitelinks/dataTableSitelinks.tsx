@@ -78,6 +78,7 @@ const LinkDataTable = () => {
             url: 'http://example.com',
             description: 'Описание новой ссылки',
         };
+    }
 
     if (loading) {
         return (
