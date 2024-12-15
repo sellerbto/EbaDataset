@@ -6,6 +6,17 @@
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     padding: 2rem;
     background-color: #f9f9f9;
+    position: relative;
+}
+
+.table-toolbar {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.p-button-block {
+    width: 100% !important;
+    box-sizing: border-box;
 }
 
 .p-datatable-tbody > tr:hover {

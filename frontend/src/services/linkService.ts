@@ -85,6 +85,7 @@ export const linkService = {
                 const id = (mockLinks.length + 1).toString();
                 const createdLink: LinkData = { id, ...newLink };
                 mockLinks.push(createdLink);
+
                 resolve({ ...createdLink });
             }, 1000);
         });

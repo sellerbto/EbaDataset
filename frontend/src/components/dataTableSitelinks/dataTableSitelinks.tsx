@@ -7,35 +7,112 @@ import { InputText } from 'primereact/inputtext';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
-import { useAppDispatch, useAppSelector } from '../../store';
+import { useContext, useEffect, useState } from 'react';
+import { ToastContext } from '../../context/toastContext';
+import { linkService } from '../../services/linkService';
+import { LinkData } from '../../types/link';
 import './dataTableSitelinks.scss';
-import {deleteLink, updateLink} from "../../store/api-actions.ts";
 
-const LinkDataTable = () => {
-    const dispatch = useAppDispatch();
-    const links = useAppSelector((state) => state.currentLinks);
-    const loading = useAppSelector((state) => state.currentLinks);
+const LinkDataTable: React.FC = () => {
+    const [links, setLinks] = useState<LinkData[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const toastContext = useContext(ToastContext);
 
+    useEffect(() => {
+        linkService
+            .getLinks()
+            .then((fetchedLinks: LinkData[]) => {
+                setLinks(fetchedLinks);
+                setLoading(false);
+            })
+            .catch(() => {
+                setLoading(false);
+                toastContext?.show({
+                    severity: 'error',
+                    summary: 'Ошибка',
+                    detail: 'Не удалось загрузить ссылки.',
+                    life: 3000,
+                });
+            });
+    }, [toastContext]);
 
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
 
         if (typeof newValue === 'string' && newValue.trim().length === 0) {
             event.preventDefault();
-            console.warn(`Field "${field}" cannot be empty.`);
+            toastContext?.show({
+                severity: 'warn',
+                summary: 'Предупреждение',
+                detail: `Поле "${field}" не может быть пустым.`,
+                life: 3000,
+            });
             return;
         }
 
-        const updatedLink = { ...rowData, [field]: newValue };
-        dispatch(updateLink(updatedLink));
+        const updatedLink: LinkData = { ...rowData, [field]: newValue };
+
+        linkService
+            .updateLink(updatedLink)
+            .then((updated: LinkData) => {
+                setLinks(prevLinks =>
+                    prevLinks.map(link =>
+                        link.id === updated.id ? updated : link
+                    )
+                );
+                toastContext?.show({
+                    severity: 'success',
+                    summary: 'Успех',
+                    detail: 'Ссылка успешно обновлена.',
+                    life: 3000,
+                });
+            })
+            .catch(() => {
+                toastContext?.show({
+                    severity: 'error',
+                    summary: 'Ошибка',
+                    detail: 'Не удалось обновить ссылку.',
+                    life: 3000,
+                });
+            });
     };
 
-    const confirmDelete = (rowData: { id: string; name: string }) => {
+    const confirmDelete = (rowData: LinkData) => {
         confirmDialog({
             message: `Вы уверены, что хотите удалить ссылку "${rowData.name}"?`,
             header: 'Подтверждение удаления',
             icon: 'pi pi-exclamation-triangle',
-            accept: () => dispatch(deleteLink(rowData.id)),
+            accept: () => {
+                linkService
+                    .deleteLink(rowData.id)
+                    .then(() => {
+                        setLinks(prevLinks =>
+                            prevLinks.filter(link => link.id !== rowData.id)
+                        );
+                        toastContext?.show({
+                            severity: 'success',
+                            summary: 'Успех',
+                            detail: 'Ссылка успешно удалена.',
+                            life: 3000,
+                        });
+                    })
+                    .catch(() => {
+                        toastContext?.show({
+                            severity: 'error',
+                            summary: 'Ошибка',
+                            detail: 'Не удалось удалить ссылку.',
+                            life: 3000,
+                        });
+                    });
+            },
+            reject: () => {
+                toastContext?.show({
+                    severity: 'info',
+                    summary: 'Отменено',
+                    detail: 'Удаление ссылки отменено.',
+                    life: 3000,
+                });
+            },
         });
     };
 
@@ -52,13 +129,13 @@ const LinkDataTable = () => {
 
     const cellEditor = (options: ColumnEditorOptions) => textEditor(options);
 
-    const linkBodyTemplate = (rowData: { url: string }) => (
+    const linkBodyTemplate = (rowData: LinkData) => (
         <a href={rowData.url} target='_blank' rel='noopener noreferrer'>
             {rowData.url}
         </a>
     );
 
-    const deleteBodyTemplate = (rowData: { id: string; name: string }) => (
+    const deleteBodyTemplate = (rowData: LinkData) => (
         <Button
             icon='pi pi-trash'
             className='p-button-danger p-button-sm'
@@ -71,19 +148,45 @@ const LinkDataTable = () => {
         />
     );
 
+    const addNewRow = () => {
+        const newLink: LinkData = {
+            id: String(links.length + 1),
+            name: 'Новая ссылка',
+            url: 'http://example.com',
+            description: 'Описание новой ссылки',
+        };
 
-    if (loading) {
-        return (
-            <div className = 'table-container' >
-                <div className='loading-container' style={{ textAlign: 'center', padding: '2rem' }}>
-                    <ProgressSpinner />
-                </div>
-            </div>
-        )
-    }
+        linkService
+            .createLink(newLink)
+            .then((createdLink: LinkData) => {
+                setLinks([...links, createdLink]);
+                toastContext?.show({
+                    severity: 'success',
+                    summary: 'Успех',
+                    detail: 'Ссылка успешно добавлена.',
+                    life: 3000,
+                });
+            })
+            .catch(() => {
+                toastContext?.show({
+                    severity: 'error',
+                    summary: 'Ошибка',
+                    detail: 'Не удалось добавить ссылку.',
+                    life: 3000,
+                });
+            });
+    };
 
     return (
         <div className='table-container'>
+            {loading ? (
+                <div
+                    className='loading-container'
+                    style={{ textAlign: 'center', padding: '2rem' }}
+                >
+                    <ProgressSpinner />
+                </div>
+            ) : (
                 <DataTable
                     value={links}
                     sortMode='multiple'
@@ -121,6 +224,16 @@ const LinkDataTable = () => {
                         style={{ width: '5%', textAlign: 'center' }}
                     />
                 </DataTable>
+            )}
+
+            <div className='table-toolbar'>
+                <Button
+                    icon='pi pi-plus'
+                    label='Добавить ссылку'
+                    className='p-button-success p-button-block'
+                    onClick={addNewRow}
+                />
+            </div>
         </div>
     );
 };
