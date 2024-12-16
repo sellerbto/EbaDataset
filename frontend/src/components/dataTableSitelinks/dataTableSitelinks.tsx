@@ -118,7 +118,10 @@ const LinkDataTable = () => {
     if (loading) {
         return (
             <div className='table-container'>
-                <div className='loading-container'>
+                <div
+                    className='loading-container'
+                    style={{ textAlign: 'center', padding: '2rem' }}
+                >
                     <ProgressSpinner />
                 </div>
             </div>
@@ -177,7 +180,7 @@ const LinkDataTable = () => {
                 header='Добавить новую ссылку'
                 visible={dialogVisible}
                 onHide={closeAddLinkDialog}
-                className='link-dialog'
+                style={{ width: '50vw' }}
                 footer={
                     <div>
                         <Button
