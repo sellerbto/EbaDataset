@@ -2,19 +2,16 @@ import { LinkData } from '../types/link';
 
 const mockLinks: LinkData[] = [
     {
-        id: '1',
         name: 'OpenAI',
         url: 'https://www.openai.com',
         description: 'AI research lab',
     },
     {
-        id: '2',
         name: 'Google',
         url: 'https://www.google.com',
         description: 'Search engine',
     },
     {
-        id: '3',
         name: 'GitHub',
         url: 'https://www.github.com',
         description: 'Code hosting platform',
@@ -43,7 +40,7 @@ export const linkService = {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
                 const index = mockLinks.findIndex(
-                    link => link.id === updatedLink.id
+                    link => link.url === updatedLink.url
                 );
                 if (index !== -1) {
                     mockLinks[index] = { ...updatedLink };
@@ -56,14 +53,14 @@ export const linkService = {
     },
 
     /**
-     * Удаление ссылки по ID
-     * @param id - Идентификатор ссылки
+     * Удаление ссылки по URL
+     * @param url - URL ссылки
      * @returns Promise<void>
      */
-    async deleteLink(id: string): Promise<void> {
+    async deleteLink(url: string): Promise<void> {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
-                const index = mockLinks.findIndex(link => link.id === id);
+                const index = mockLinks.findIndex(link => link.url === url);
                 if (index !== -1) {
                     mockLinks.splice(index, 1);
                     resolve();
@@ -76,17 +73,14 @@ export const linkService = {
 
     /**
      * Создание новой ссылки
-     * @param newLink - Данные новой ссылки без ID
+     * @param newLink - Данные новой ссылки
      * @returns Promise<LinkData>
      */
     async createLink(newLink: Omit<LinkData, 'id'>): Promise<LinkData> {
         return new Promise(resolve => {
             setTimeout(() => {
-                const id = (mockLinks.length + 1).toString();
-                const createdLink: LinkData = { id, ...newLink };
-                mockLinks.push(createdLink);
-
-                resolve({ ...createdLink });
+                mockLinks.push(newLink);
+                resolve({ ...newLink });
             }, 1000);
         });
     },
