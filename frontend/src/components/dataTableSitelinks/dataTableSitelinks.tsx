@@ -12,7 +12,6 @@ import 'primereact/resources/themes/saga-blue/theme.css';
 import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store';
 import {
-    addLink,
     createOrUpdateLink,
     deleteLink,
     fetchLinks,
@@ -110,7 +109,7 @@ const LinkDataTable = () => {
         }
 
         // Нужно реализовать в api
-        await dispatch(addLink(newLink));
+        await dispatch(createOrUpdateLink(newLink));
         dispatch(fetchLinks());
         closeAddLinkDialog();
     };
