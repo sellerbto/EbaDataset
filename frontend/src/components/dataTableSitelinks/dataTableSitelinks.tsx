@@ -108,7 +108,6 @@ const LinkDataTable = () => {
             return;
         }
 
-        // Нужно реализовать в api
         await dispatch(createOrUpdateLink(newLink));
         dispatch(fetchLinks());
         closeAddLinkDialog();
