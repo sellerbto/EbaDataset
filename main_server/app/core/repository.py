@@ -6,8 +6,28 @@ from sqlalchemy import update, delete
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Dataset, DatasetUsageHistory, EventType, Link
+from app.models import Dataset, DatasetUsageHistory, EventType, Link, DatasetGeneralInfo
 from app.schemas.requests import DaemonClientRequest, LinkDescriptionUpdateRequest
+
+
+class DatasetGeneralInfoRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def edit_description(self, dataset_name: str, new_description: str):
+        stmt = (
+            update(DatasetGeneralInfo)
+            .where(DatasetGeneralInfo.name == dataset_name)
+            .values(description=new_description)
+        )
+
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+    async def get_all(self):
+        query = select(DatasetGeneralInfo)
+        result = await self.session.execute(query)
+        return result.scalars().all()
 
 
 class DatasetRepository:
@@ -34,15 +54,22 @@ class DatasetRepository:
         return dataset
 
     async def get_dataset_by(self, dataset_name: str, dataset_host: str) -> Optional[Dataset]:
-        result = await self.session.execute(
-            select(Dataset).where(DatasetUsageHistory.host_name == dataset_host,
-            DatasetUsageHistory.dataset_name == dataset_name)
+        query = (
+            select(Dataset)
+            .join(DatasetGeneralInfo, Dataset.dataset_general_info)
+            .where(
+                DatasetGeneralInfo.name == dataset_name,
+                Dataset.host == dataset_host
+            )
         )
-        return result.scalars().first()
+        result = await self.session.execute(query)
+        dataset = result.scalars().first()
+        return dataset
 
     async def get_all_datasets(self) -> Sequence[Dataset]:
         result = await self.session.execute(select(Dataset))
-        return result.scalars().all()
+        datasets =  result.scalars().all()
+        return datasets
 
     async def update_dataset(
             self,

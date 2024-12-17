@@ -25,6 +25,7 @@ class UserCreateRequest(BaseRequest):
 
 class DaemonClientRequest(BaseRequest):
     hostname: str
+    file_path: str
     dataset_name: str
     age: datetime
     access_rights: str
@@ -35,4 +36,8 @@ class DaemonClientRequest(BaseRequest):
 class LinkDescriptionUpdateRequest(BaseModel):
     url: HttpUrl
     name: Optional[str] = None
+    description: Optional[str] = None
+
+class DatasetInfoUpdateRequest(BaseRequest):
+    name: str
     description: Optional[str] = None

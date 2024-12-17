@@ -8,7 +8,7 @@ from watchdog.events import FileSystemEventHandler, DirModifiedEvent, FileModifi
     FileDeletedEvent
 from watchdog.observers import Observer
 
-from deamon.base import TrackingResult, TrackingStatus, ListTrackedResult
+from base import TrackingResult, TrackingStatus, ListTrackedResult
 
 
 def format_timestamp_to_iso8601(timestamp):
@@ -19,7 +19,8 @@ def get_metadata(file_path: str) -> Dict:
     stats = os.stat(file_path)
     client_response = {
         "hostname": socket.gethostname(),
-        "dataset_name": file_path,
+        "file_path": file_path,
+        "dataset_name": "aboba",
         "age": format_timestamp_to_iso8601(stats.st_ctime),
         "access_rights": oct(stats.st_mode)[-3:],
         "last_access_date": format_timestamp_to_iso8601(stats.st_atime),

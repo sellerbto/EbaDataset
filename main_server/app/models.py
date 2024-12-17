@@ -72,20 +72,36 @@ class Link(Base):
     name: Mapped[str] = mapped_column(String(256), nullable=True)
     description: Mapped[str] = mapped_column(String(1024), nullable=True)
 
+
+class DatasetGeneralInfo(Base):
+    __tablename__ = "dataset_general_info"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    description: Mapped[str] = mapped_column(String(1024), nullable=True)
+
+    dataset_id: Mapped[int] = mapped_column(ForeignKey("dataset.id"), nullable=False)
+
+    dataset: Mapped["Dataset"] = relationship("Dataset", back_populates="dataset_general_info", uselist=False)
+
 class Dataset(Base):
     __tablename__ = "dataset"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(256), nullable=False)
     access_rights: Mapped[str] = mapped_column(String(3), nullable=False)
     size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     host: Mapped[str] = mapped_column(String(256), nullable=False)
-    description: Mapped[str] = mapped_column(String(1024), nullable=True)
     created_at_device: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
     created_at_server: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    dataset_general_info: Mapped["DatasetGeneralInfo"] = relationship(
+        "DatasetGeneralInfo", back_populates="dataset", uselist=False
     )
 
 class DatasetUsageHistory(Base):

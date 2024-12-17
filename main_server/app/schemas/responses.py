@@ -1,3 +1,5 @@
+from typing import Optional, List
+
 from pydantic import BaseModel, ConfigDict, EmailStr, HttpUrl
 from datetime import datetime
 
@@ -22,11 +24,17 @@ class LinkResponse(BaseResponse):
     description: str
 
 class DatasetInfo(BaseResponse):
-    name: str
+    id: int
+    file_path: str
     size: int
     host: str
-    created_at_server: datetime
-    created_at_host: datetime
-    last_read: datetime
-    last_modified: datetime
-    frequency_of_use_in_month: int
+    created_at_server: Optional[datetime] = None
+    created_at_host: Optional[datetime] = None
+    last_read: Optional[datetime] = None
+    last_modified: Optional[datetime] = None
+    frequency_of_use_in_month: Optional[int] = None
+
+class DatasetsSummary(BaseModel):
+    name: str
+    description: str
+    datasets_infos: List[DatasetInfo]

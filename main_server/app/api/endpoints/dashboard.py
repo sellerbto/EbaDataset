@@ -1,51 +1,34 @@
-from datetime import datetime
-import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
-import re
-from app.core.repository import DatasetRepository, DatasetUsageHistoryRepository, LinkRepository
+from typing import List
 
+from fastapi import APIRouter, Depends, status
+from pydantic import HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import EventType, Link
-from app.schemas.responses import DatasetInfo, LinkResponse
 from app.api import deps
-from typing import List, Dict
-from app.schemas.requests import LinkDescriptionUpdateRequest
-from pydantic import HttpUrl
+from app.core.db_utils import get_dataset_infos
+from app.core.repository import LinkRepository, \
+    DatasetGeneralInfoRepository
+from app.models import Link
+from app.schemas.requests import LinkDescriptionUpdateRequest, DatasetInfoUpdateRequest
+from app.schemas.responses import LinkResponse, DatasetsSummary
 
 router = APIRouter()
 
 
-@router.get("/datasets", response_model=List[DatasetInfo], description="Get list of dataset infos")
+@router.get("/datasets", response_model=DatasetsSummary, description="Get list of dataset infos")
 async def get_datasets_info(
     session: AsyncSession = Depends(deps.get_session)
-) -> List[DatasetInfo]:
-    infos = []
-    repository = DatasetRepository(session)
-    events_repository = DatasetUsageHistoryRepository(session)
-    stats_time = datetime.timedelta(seconds=2592000)
+) -> DatasetsSummary:
+    return await get_dataset_infos(session)
 
-    datasets = await repository.get_all_datasets()
-
-    for dataset in datasets:
-
-        latest_events = await events_repository.get_latest_events(dataset.name)
-        last_read = latest_events.get(EventType.READ)
-        last_modified = latest_events.get(EventType.MODIFY)
-
-        entity = DatasetInfo(
-            name=dataset.name,
-            size=dataset.size,
-            host=dataset.host,
-            created_at_server=dataset.created_at_server,
-            created_at_host=dataset.created_at_device,
-            last_read=last_read,
-            last_modified=last_modified,
-            frequency_of_use_in_month=123,
-        )
-        infos.append(entity)
-
-    return infos
+@router.post("/datasets", response_model=DatasetsSummary, description="Edits dataset description")
+async def edit_dataset_description(
+    request: DatasetInfoUpdateRequest,
+    session: AsyncSession = Depends(deps.get_session)
+) -> DatasetsSummary:
+    repository = DatasetGeneralInfoRepository(session)
+    await repository.edit_description(request.name, request.description)
+    return await get_dataset_infos(session)
 
 @router.post("/links", status_code=status.HTTP_200_OK, response_model=List[LinkResponse])
 async def add_or_update_link(
