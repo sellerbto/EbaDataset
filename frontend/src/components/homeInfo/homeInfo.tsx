@@ -1,3 +1,4 @@
+// src/components/HomeInfo.tsx
 import React from 'react';
 import './HomeInfo.scss';
 

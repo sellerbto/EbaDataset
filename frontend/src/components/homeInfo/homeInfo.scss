@@ -1,11 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
 .home-info-container {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
     background: #f9fafb;
-    padding: 2rem;
     box-sizing: border-box;
+    font-family: 'Roboto', sans-serif; /* Применение шрифта ко всему контейнеру */
 }
 
 .home-info-content {

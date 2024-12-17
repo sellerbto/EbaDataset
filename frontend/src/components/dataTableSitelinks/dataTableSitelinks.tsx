@@ -9,31 +9,37 @@ import { InputTextarea } from 'primereact/inputtextarea';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
-import { useEffect, useState } from 'react';
-import { useAppDispatch, useAppSelector } from '../../store';
-import {
-    createOrUpdateLink,
-    deleteLink,
-    fetchLinks,
-} from '../../store/api-actions.ts';
+import { useState } from 'react';
+// import { useAppDispatch, useAppSelector } from '../../store';
+// import {
+//     createOrUpdateLink,
+//     deleteLink,
+//     fetchLinks,
+// } from '../../store/api-actions.ts';
 import { LinkData } from '../../types/link.ts';
 import './dataTableSitelinks.scss';
 
 const LinkDataTable = () => {
-    const dispatch = useAppDispatch();
-    const links = useAppSelector(state => state.currentLinks);
-    const loading = useAppSelector(state => state.linksLoading);
+    const [links, setLinks] = useState<LinkData[]>([
+        {
+            name: 'Google',
+            url: 'https://www.google.com',
+            description: 'Поисковая система',
+        },
+        {
+            name: 'GitHub',
+            url: 'https://github.com',
+            description: 'Хостинг репозиториев',
+        },
+    ]);
 
+    const [loading, setLoading] = useState(false);
     const [dialogVisible, setDialogVisible] = useState(false);
     const [newLink, setNewLink] = useState<LinkData>({
         name: '',
         url: '',
         description: '',
     });
-
-    useEffect(() => {
-        dispatch(fetchLinks());
-    }, [dispatch]);
 
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
@@ -45,7 +51,11 @@ const LinkDataTable = () => {
         }
 
         const updatedLink: LinkData = { ...rowData, [field]: newValue };
-        dispatch(createOrUpdateLink(updatedLink));
+        setLinks(prevLinks =>
+            prevLinks.map(link =>
+                link.url === rowData.url ? updatedLink : link
+            )
+        );
     };
 
     const confirmDelete = (rowData: { url: string; name: string }) => {
@@ -53,7 +63,11 @@ const LinkDataTable = () => {
             message: `Вы уверены, что хотите удалить ссылку "${rowData.name}"?`,
             header: 'Подтверждение удаления',
             icon: 'pi pi-exclamation-triangle',
-            accept: () => dispatch(deleteLink(rowData.url)),
+            accept: () => {
+                setLinks(prevLinks =>
+                    prevLinks.filter(link => link.url !== rowData.url)
+                );
+            },
         });
     };
 
@@ -108,8 +122,7 @@ const LinkDataTable = () => {
             return;
         }
 
-        await dispatch(createOrUpdateLink(newLink));
-        dispatch(fetchLinks());
+        setLinks(prevLinks => [...prevLinks, newLink]);
         closeAddLinkDialog();
     };
 
@@ -196,41 +209,42 @@ const LinkDataTable = () => {
                     </div>
                 }
             >
-                <div className='p-field'>
-                    <label htmlFor='name'>Название</label>
-                    <InputText
-                        id='name'
-                        value={newLink.name}
-                        onChange={e =>
-                            setNewLink({ ...newLink, name: e.target.value })
-                        }
-                        autoFocus
-                    />
-                </div>
-                <div className='p-field'>
-                    <label htmlFor='url'>URL</label>
-                    <InputText
-                        id='url'
-                        value={newLink.url}
-                        onChange={e =>
-                            setNewLink({ ...newLink, url: e.target.value })
-                        }
-                    />
-                </div>
-
-                <div className='p-field'>
-                    <label htmlFor='description'>Описание</label>
-                    <InputTextarea
-                        id='description'
-                        value={newLink.description}
-                        onChange={e =>
-                            setNewLink({
-                                ...newLink,
-                                description: e.target.value,
-                            })
-                        }
-                        rows={3}
-                    />
+                <div className='p-fluid'>
+                    <div className='p-field'>
+                        <label htmlFor='name'>Название</label>
+                        <InputText
+                            id='name'
+                            value={newLink.name}
+                            onChange={e =>
+                                setNewLink({ ...newLink, name: e.target.value })
+                            }
+                            autoFocus
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='url'>URL</label>
+                        <InputText
+                            id='url'
+                            value={newLink.url}
+                            onChange={e =>
+                                setNewLink({ ...newLink, url: e.target.value })
+                            }
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='description'>Описание</label>
+                        <InputTextarea
+                            id='description'
+                            value={newLink.description}
+                            onChange={e =>
+                                setNewLink({
+                                    ...newLink,
+                                    description: e.target.value,
+                                })
+                            }
+                            rows={3}
+                        />
+                    </div>
                 </div>
             </Dialog>
         </div>
