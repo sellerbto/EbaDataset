@@ -1,14 +1,16 @@
 import os
 import asyncio
+import signal
 import click
 from dotenv import load_dotenv
-from tracker.src.shared.model import Command, AddCommand, RemoveCommand, ListCommand, CommandResult, TrackingResults, ListTrackedResult, \
-    parse_result
-from tracker.src.shared.json_transfer import read_json, write_json
+from core.model import Command, AddCommand, RemoveCommand, CommandResult, TrackingResults, \
+    ListTrackedResult, \
+    parse_result, PingResult, SimpleCommand, CommandType
+from core.transfer import read_json, write_json, get_pid
 
-# Load environment variables
 load_dotenv()
-SOCKET_PATH = os.getenv("SOCKET_PATH", "/tmp/file_tracker.sock")
+SOCKET_PATH = os.getenv("SOCKET_PATH", "var/file_tracker.sock")
+PID_FILE = os.getenv("PID_FILE", "var/daemon.pid")
 
 
 class FileTrackingClient:
@@ -34,6 +36,37 @@ class FileTrackingClient:
 def cli():
     """A client for managing a file tracking server."""
     pass
+
+
+@cli.command()
+def start() -> None:
+    """Start the file tracking server."""
+    os.system(f"python3 server.py")
+    click.echo("Server started.")
+
+
+@cli.command()
+def stop() -> None:
+    """Stop the file tracking server."""
+    try:
+        pid = get_pid(PID_FILE)
+        os.kill(pid, signal.SIGTERM)
+        click.echo("Server stopped.")
+    except FileNotFoundError:
+        click.echo("PID file not found.", err=True)
+    except ProcessLookupError:
+        click.echo("Process not found.", err=True)
+
+
+@cli.command()
+def status() -> None:
+    """Status of file tracking server work."""
+    client = FileTrackingClient()
+    try:
+        results: PingResult = asyncio.run(client.send_command(SimpleCommand(CommandType.PING)))
+        click.echo(results.status_info)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
 
 
 @cli.command()
@@ -71,26 +104,12 @@ def get_list() -> None:
     """List all tracked files."""
     client = FileTrackingClient()
     try:
-        result: ListTrackedResult = asyncio.run(client.send_command(ListCommand()))
+        result: ListTrackedResult = asyncio.run(client.send_command(SimpleCommand(CommandType.LIST)))
         click.echo("Currently tracked files:")
         for file_path in result.file_paths:
             click.echo(f"- {file_path}")
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-
-
-@cli.command()
-def start() -> None:
-    """Start the file tracking server."""
-    os.system(f"python server.py start")
-    click.echo("Server started.")
-
-
-@cli.command()
-def stop() -> None:
-    """Stop the file tracking server."""
-    os.system(f"python server.py stop")
-    click.echo("Server stopped.")
 
 
 if __name__ == "__main__":

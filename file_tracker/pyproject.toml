@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "File Tracker"
+version = "0.1.0"
+description = "file tracker for client"
+authors = ["dimastarsis <kurilin.dmitriy@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+click = "^8.1.8"
+watchdog = "^6.0.0"
+asyncio = "^3.4.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

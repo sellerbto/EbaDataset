@@ -6,6 +6,7 @@ class CommandType(Enum):
     ADD = 'add'
     REMOVE = 'remove'
     LIST = 'list'
+    PING = 'ping'
 
     @staticmethod
     def parse(data: dict[str, Any]) -> 'CommandType':
@@ -17,12 +18,14 @@ class CommandType(Enum):
                 return CommandType.REMOVE
             case CommandType.LIST.value:
                 return CommandType.LIST
+            case CommandType.PING.value:
+                return CommandType.PING
             case _:
-                raise ValueError(f"Неожиданное значение {value}")
+                raise ValueError(f"Unexpected value {value}")
 
 
 class Command(Protocol):
-    """Базовый класс для команд серверу"""
+    """Base class for server command"""
 
     @property
     def type(self) -> CommandType:
@@ -74,10 +77,13 @@ class RemoveCommand(Command):
         return RemoveCommand(data['file_paths'])
 
 
-class ListCommand(Command):
+class SimpleCommand(Command):
+    def __init__(self, cmd_type: CommandType):
+        self.cmd_type: CommandType = cmd_type
+
     @property
     def type(self) -> CommandType:
-        return CommandType.LIST
+        return self.cmd_type
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -85,19 +91,19 @@ class ListCommand(Command):
         }
 
     @staticmethod
-    def from_dict(data: dict[str, Any]) -> 'ListCommand':
-        return ListCommand()
+    def from_dict(data: dict[str, Any]) -> 'SimpleCommand':
+        return SimpleCommand(CommandType.parse(data))
 
 
 def parse_command(data: dict[str, Any]) -> 'Command':
-    cmd = CommandType.parse(data)
-    match cmd:
+    cmd_type = CommandType.parse(data)
+    match cmd_type:
         case CommandType.ADD:
             return AddCommand.from_dict(data)
         case CommandType.REMOVE:
             return RemoveCommand.from_dict(data)
-        case CommandType.LIST:
-            return ListCommand.from_dict(data)
+        case CommandType.LIST | CommandType.PING:
+            return SimpleCommand.from_dict(data)
         case _:
             raise ValueError()
 
@@ -182,11 +188,27 @@ class ListTrackedResult(CommandResult):
         return ListTrackedResult(data['file_paths'])
 
 
+class PingResult(CommandResult):
+    def __init__(self, status_info: str) -> None:
+        self.status_info: str = status_info
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'status': self.status_info
+        }
+
+    @staticmethod
+    def from_dict(data: dict[str, Any]) -> 'PingResult':
+        return PingResult(data['status'])
+
+
 def parse_result(cmd: CommandType, data: dict[str, Any]) -> 'CommandResult':
     match cmd:
         case CommandType.ADD | CommandType.REMOVE:
             return TrackingResults.from_dict(data)
         case CommandType.LIST:
             return ListTrackedResult.from_dict(data)
+        case CommandType.PING:
+            return PingResult.from_dict(data)
         case _:
             raise ValueError()

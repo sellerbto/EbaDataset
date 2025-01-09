@@ -7,7 +7,7 @@ import requests
 from watchdog.events import FileSystemEventHandler, DirModifiedEvent, FileModifiedEvent, DirDeletedEvent, \
     FileDeletedEvent
 from watchdog.observers import Observer
-from tracker.src.shared.model import TrackingResult, TrackingStatus
+from .model import TrackingResult, TrackingStatus
 
 
 def format_timestamp_to_iso8601(timestamp) -> datetime:

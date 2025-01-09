@@ -3,57 +3,52 @@ import sys
 import asyncio
 import signal
 import logging
-import click
 from dotenv import load_dotenv
-from tracker import DirectoryTrackerManager
-from tracker.src.shared.model import CommandType, AddCommand, ListCommand, TrackingResults, ListTrackedResult, parse_command
-from tracker.src.shared.json_transfer import read_json, write_json
+from core.tracker import DirectoryTrackerManager
+from core.model import CommandType, AddCommand, TrackingResults, ListTrackedResult, \
+    parse_command, PingResult
+from core.transfer import read_json, write_json, get_pid
 
 # Load environment variables
 load_dotenv()
-SOCKET_PATH = os.getenv("SOCKET_PATH", "/tmp/file_tracker.sock")
-LOG_FILE = os.getenv("LOG_FILE", "../server.log")
-PID_FILE = os.getenv("PID_FILE", "/tmp/daemon.pid")
+SOCKET_PATH = os.getenv("SOCKET_PATH", "var/file_tracker.sock")
+LOG_FILE = os.getenv("LOG_FILE", "var/server.log")
+PID_FILE = os.getenv("PID_FILE", "var/daemon.pid")
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(LOG_FILE),     # Логирование в файл
-        logging.StreamHandler()           # Логирование в консоль
+        logging.FileHandler(LOG_FILE),  # Логирование в файл
+        logging.StreamHandler()  # Логирование в консоль
     ]
 )
 
 
-def daemonize():
-    """Делаем процесс демоном"""
-    # Первый fork
+def daemonize() -> None:
+    """Making the process a daemon"""
     if os.fork() > 0:
         sys.exit(0)
 
-    # Отделение от управляющего терминала
     os.setsid()
 
-    # Второй fork
     if os.fork() > 0:
         sys.exit(0)
 
-    # Перенаправляем стандартные потоки в /dev/null
     sys.stdout.flush()
     sys.stderr.flush()
     with open(os.devnull, 'wb', 0) as null_out:
         os.dup2(null_out.fileno(), sys.stdout.fileno())
         os.dup2(null_out.fileno(), sys.stderr.fileno())
 
-    # Записываем PID в PID-файл
     with open(PID_FILE, "w") as f:
         f.write(str(os.getpid()))
 
 
 class FileTrackingServer:
     def __init__(self):
-        # daemonize()
+        daemonize()
         self.tracker_manager = DirectoryTrackerManager()
         self.server = None
         self.is_running = False
@@ -66,13 +61,18 @@ class FileTrackingServer:
             match command.type:
                 case CommandType.ADD:
                     command: AddCommand
-                    result = TrackingResults([self.tracker_manager.start_watching(file_path) for file_path in command.file_paths])
+                    result = TrackingResults(
+                        [self.tracker_manager.start_watching(file_path) for file_path in command.file_paths]
+                        )
                 case CommandType.REMOVE:
                     command: AddCommand
-                    result = TrackingResults([self.tracker_manager.stop_watching(file_path) for file_path in command.file_paths])
+                    result = TrackingResults(
+                        [self.tracker_manager.stop_watching(file_path) for file_path in command.file_paths]
+                        )
                 case CommandType.LIST:
-                    command: ListCommand
                     result = ListTrackedResult(self.tracker_manager.list_watched_files())
+                case CommandType.PING:
+                    result = PingResult(f"The tracking server is running with a PID={get_pid(PID_FILE)}")
                 case _:
                     raise ValueError(f"Unknown command {command}")
 
@@ -107,22 +107,15 @@ class FileTrackingServer:
         logging.info("Server stopped.")
 
 
-@click.group()
-def cli():
-    "File Tracking Server Management."
-    pass
-
-
-@cli.command()
-def start():
-    "Start the file tracking server."
+def run_server() -> None:
+    """Run the file tracking server."""
     server = FileTrackingServer()
 
-    def handle_signal(signal_number, frame):
+    def handle_signal(signal_number, frame) -> None:
         logging.info("Stopping server...")
         loop = asyncio.get_event_loop()
         loop.create_task(server.stop_server())
-        loop.stop()
+        loop.stop()  # todo не работает
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, handle_signal)
@@ -134,19 +127,5 @@ def start():
         logging.error(f"Error starting server: {e}")
 
 
-@cli.command()
-def stop():
-    """Stop the file tracking server."""
-    try:
-        with open(PID_FILE, "r") as pid_file:
-            pid = int(pid_file.read().strip())
-        os.kill(pid, signal.SIGTERM)
-        click.echo("Server stopped.")
-    except FileNotFoundError:
-        click.echo("PID file not found. Is the server running?", err=True)
-    except ProcessLookupError:
-        click.echo("Process not found. Is the server running?", err=True)
-
-
 if __name__ == "__main__":
-    cli()
+    run_server()
