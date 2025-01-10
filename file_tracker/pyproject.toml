@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "File Tracker"
 version = "0.1.0"
-description = "file tracker for client"
+description = "File tracker client"
 authors = ["dimastarsis <kurilin.dmitriy@gmail.com>"]
 readme = "README.md"
 
@@ -10,6 +10,7 @@ python = "^3.11"
 click = "^8.1.8"
 watchdog = "^6.0.0"
 asyncio = "^3.4.3"
+argparse = "^1.4.0"
 
 
 [build-system]

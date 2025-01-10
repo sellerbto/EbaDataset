@@ -25,7 +25,7 @@ class CommandType(Enum):
 
 
 class Command(Protocol):
-    """Base class for server command"""
+    """Base class for request to server"""
 
     @property
     def type(self) -> CommandType:
@@ -127,11 +127,11 @@ class TrackingStatus(Enum):
             case TrackingStatus.NOT_FOUND.value:
                 return TrackingStatus.NOT_FOUND
             case _:
-                raise ValueError(f"Неожиданное значение {value}")
+                raise ValueError(f"Unexpected value: {value}")
 
 
 class CommandResult(Protocol):
-    """Базовый класс для ответа от сервера на команды"""
+    """Base class for server response"""
 
     def to_dict(self) -> dict[str, Any]:
         pass

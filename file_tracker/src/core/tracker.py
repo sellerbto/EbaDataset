@@ -1,9 +1,9 @@
 import os
 import socket
-from datetime import datetime, timezone
-from typing import Any
-
+import logging
 import requests
+from typing import Any
+from datetime import datetime, timezone
 from watchdog.events import FileSystemEventHandler, DirModifiedEvent, FileModifiedEvent, DirDeletedEvent, \
     FileDeletedEvent
 from watchdog.observers import Observer
@@ -32,11 +32,11 @@ def send_metadata_to_server(metadata: dict[str, Any]) -> None:
     try:
         response = requests.post("http://127.0.0.1:8000/client/add_event", json=metadata)
         if response.status_code == 200:
-            print(f"Метаданные успешно отправлены: {metadata['dataset_name']}")
+            logging.info(f"Metadata has been sent successfully: {metadata['dataset_name']}")
         else:
-            print(f"Ошибка отправки метаданных: {response.status_code}")
+            logging.error(f"Error while sending metadata: {response.status_code}")
     except Exception as e:
-        print(f"Не удалось отправить метаданные: {e}")
+        logging.error(f"Couldn't send metadata: {e}")
 
 
 class DirectoryEventHandler(FileSystemEventHandler):
@@ -60,15 +60,14 @@ class DirectoryEventHandler(FileSystemEventHandler):
 
     def on_modified(self, event: DirModifiedEvent | FileModifiedEvent) -> None:
         if event.src_path in self.file_paths:
-            print(f"File modified: {event.src_path}")
+            logging.info(f"File modified: {event.src_path}")
             metadata = get_metadata(event.src_path)
-            print(metadata)
             send_metadata_to_server(metadata)
 
     def on_deleted(self, event: DirDeletedEvent | FileDeletedEvent) -> None:
         if event.src_path in self.file_paths:
             if self.remove_file(event.src_path):
-                print(f"File deleted: {event.src_path}")
+                logging.info(f"File deleted: {event.src_path}")
 
 
 class SingleDirectoryTracker:
@@ -138,7 +137,7 @@ class DirectoryTrackerManager:
         return watched_files
 
     def stop_all_watching(self) -> None:
-        for dir_path in self.tracker.keys():
+        for dir_path in list(self.tracker.keys()):
             self._remove_tracker(dir_path)
 
     def _remove_tracker(self, dir_path: str) -> None:

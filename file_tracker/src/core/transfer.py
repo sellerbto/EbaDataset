@@ -1,6 +1,7 @@
-import asyncio
-import json
 import os
+import json
+import socket
+import asyncio
 from typing import Any
 
 
@@ -25,3 +26,14 @@ def get_pid(pid_file_path: str) -> int:
 
     with open(pid_file_path, "r") as pid_file:
         return int(pid_file.read().strip())
+
+
+def get_tcp_ip_socket(host: str, port: int) -> socket.socket:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    sock.bind((host, port))
+    sock.listen(5)
+    sock.setblocking(False)
+
+    return sock
