@@ -2,31 +2,54 @@ import os
 import asyncio
 import signal
 import click
+from typing import Any
 from dotenv import load_dotenv
 from core.model import Command, AddCommand, RemoveCommand, CommandResult, TrackingResults, ListTrackedResult, \
     parse_result, PingResult, SimpleCommand, CommandType
-from core.transfer import read_json, write_json, get_pid
+from core.transfer import read_json, write_json, read_from_json, write_to_json, get_pid
 
 load_dotenv("var/.env")
 PID_FILE = os.getenv("PID_FILE")
 SOCKET_FILE = os.getenv("SOCKET_FILE")
 HOST_NAME = os.getenv("HOST_NAME")
 HOST_PORT = int(os.getenv("HOST_PORT"))
+CLIENT_STATE_FILE = os.getenv("CLIENT_STATE_FILE")
 
-use_unix_optimization = os.name == 'posix'
+
+class State:
+    def __init__(self, data: dict[str, Any]):
+        self.state = data
+
+    @property
+    def use_unix_optimization(self) -> bool:
+        if 'use_unix_optimization' not in self.state:
+            self.use_unix_optimization = os.name == 'posix'
+        return self.state['use_unix_optimization']
+
+    @use_unix_optimization.setter
+    def use_unix_optimization(self, value: bool) -> None:
+        self.state['use_unix_optimization'] = value
+
+    def clear(self) -> None:
+        self.state = dict()
+
+    @staticmethod
+    def read() -> 'State':
+        if not os.path.exists(CLIENT_STATE_FILE):
+            write_to_json(CLIENT_STATE_FILE, dict())
+
+        return State(read_from_json(CLIENT_STATE_FILE))
+
+    def write(self) -> None:
+        write_to_json(CLIENT_STATE_FILE, self.state)
 
 
-# if not os.path.exists(PID_FILE):
-#     raise FileNotFoundError(
-#         f"The ID of the process running the server was not detected at {PID_FILE}. Is the server running?"
-#     )
-# if not os.path.exists(SOCKET_FILE):
-#     raise FileNotFoundError(f"The server socket not found at {SOCKET_FILE}. Is the server running?")
+state: State = None
 
 
 async def send_command(command: Command) -> CommandResult:
     reader, writer = await asyncio.open_unix_connection(SOCKET_FILE) \
-        if use_unix_optimization \
+        if state.use_unix_optimization \
         else await asyncio.open_connection(HOST_NAME, HOST_PORT)
 
     try:
@@ -46,11 +69,19 @@ def cli():
 
 
 @cli.command()
-def start() -> None:
+@click.option(
+    '-no', '--no-optimization', is_flag=True,
+    help="Don't use UNIX optimizations, even if they are available."
+)
+def start(no_optimization: bool) -> None:
     """Start the file tracking server."""
-    start_cmd = "python3 server.py"
-    if use_unix_optimization:
+    if no_optimization:
+        state.use_unix_optimization = False
+
+    start_cmd = "python3 server.py -rl"
+    if state.use_unix_optimization:
         start_cmd += " -ux"
+
     os.system(start_cmd)
     click.echo("Server started.")
 
@@ -58,7 +89,13 @@ def start() -> None:
 @cli.command()
 def stop() -> None:
     """Stop the file tracking server."""
+    # if not os.path.exists(PID_FILE):
+    #     # send ping
+    #     raise FileNotFoundError(
+    #         f"The ID of the process running the server was not detected at {PID_FILE}. Is the server running?"
+    # )
     try:
+        state.clear()
         pid = get_pid(PID_FILE)
         os.kill(pid, signal.SIGTERM)
         click.echo("Server stopped.")
@@ -120,10 +157,15 @@ def get_list() -> None:
 
 
 def main() -> None:
+    global state
+
     try:
+        state = State.read()
         cli()
-    except FileNotFoundError as e:
-        click.echo(f"Error: {e}", err=True)
+    except Exception as e:
+        click.echo(f"Client error: {e}", err=True)
+    finally:
+        state.write()
 
 
 if __name__ == "__main__":

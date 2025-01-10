@@ -5,9 +5,10 @@ import signal
 import logging
 import argparse
 from dotenv import load_dotenv
+from dataclasses import dataclass
 from core.tracker import DirectoryTrackerManager
 from core.model import CommandType, AddCommand, TrackingResults, ListTrackedResult, parse_command, PingResult
-from core.transfer import read_json, write_json, get_pid, get_tcp_ip_socket
+from core.transfer import read_json, write_json, clear_files, get_tcp_ip_socket
 
 load_dotenv("var/.env")
 PID_FILE = os.getenv("PID_FILE")
@@ -18,19 +19,17 @@ LOG_FILE = os.getenv("LOG_FILE")
 
 
 def clear_runtime_files() -> None:
-    for file in [PID_FILE, SOCKET_FILE]:
-        if os.path.exists(file):
-            os.remove(file)
+    clear_files([PID_FILE, SOCKET_FILE])
 
 
-def set_up_logging() -> None:
+def set_up_logging(release_version: bool) -> None:
+    handlers = [logging.FileHandler(LOG_FILE)]  # logging to file
+    if not release_version:
+        handlers.append(logging.StreamHandler())  # logging to console
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler(LOG_FILE),  # logging to file
-            logging.StreamHandler()  # logging to console
-        ]
+        handlers=handlers,
     )
 
 
@@ -51,23 +50,40 @@ def daemonize_server() -> None:
         os.dup2(null_out.fileno(), sys.stderr.fileno())
 
 
+@dataclass
+class Configuration:
+    use_unix_optimization: bool
+    release_version: bool
+
+    @staticmethod
+    def parse(parser: argparse.ArgumentParser) -> 'Configuration':
+        args = parser.parse_args()
+        return Configuration(use_unix_optimization=args.unix_optimization, release_version=args.release)
+
+
 class FileTrackingServer:
-    def __init__(self, use_unix_optimization: bool) -> None:
-        clear_runtime_files()
-        daemonize_server()
-        set_up_logging()
-
-        with open(PID_FILE, "w") as f:
-            f.write(str(os.getpid()))
-
-        self.use_unix_optimization = use_unix_optimization
+    def __init__(self, configuration: Configuration) -> None:
+        self.configuration = configuration
         self.tracker_manager: DirectoryTrackerManager = None
         self.server: asyncio.Server = None
 
+        clear_runtime_files()
+        if configuration.release_version:
+            daemonize_server()
+        set_up_logging(configuration.release_version)
+
+        self.pid = os.getpid()
+        with open(PID_FILE, "w") as f:
+            f.write(str(self.pid))
+
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        addr = None
         try:
-            data = await read_json(reader)
-            command = parse_command(data)
+            addr = writer.get_extra_info('socket') if self.configuration.use_unix_optimization \
+                else writer.get_extra_info('peername')
+            request_data = await read_json(reader)
+            logging.info(f"Received from {addr} {request_data}")
+            command = parse_command(request_data)
 
             match command.type:
                 case CommandType.ADD:
@@ -83,13 +99,15 @@ class FileTrackingServer:
                 case CommandType.LIST:
                     result = ListTrackedResult(self.tracker_manager.list_watched_files())
                 case CommandType.PING:
-                    result = PingResult(f"The file tracking server is running with a PID={get_pid(PID_FILE)}")
+                    result = PingResult(f"The file tracking server is running with a PID={self.pid}")
                 case _:
                     raise ValueError(f"Unknown command {command}")
 
-            await write_json(writer, result.to_dict())
+            response_data = result.to_dict()
+            logging.info(f"Response for {addr} {response_data}")
+            await write_json(writer, response_data)
         except Exception as e:
-            logging.error(f"Error handling client: {e}")
+            logging.error(f"Error while handling client {addr if addr else '-'}: {e}")
         finally:
             writer.close()
             await writer.wait_closed()
@@ -112,9 +130,11 @@ class FileTrackingServer:
     async def _start_server(self) -> None:
         self.tracker_manager = DirectoryTrackerManager()
         self.server = await asyncio.start_unix_server(self.handle_client, path=SOCKET_FILE) \
-            if self.use_unix_optimization \
+            if self.configuration.use_unix_optimization \
             else await asyncio.start_server(self.handle_client, sock=get_tcp_ip_socket(HOST_NAME, HOST_PORT))
-        logging.info("Server started.")
+
+        extra_info = f" on {HOST_NAME}:{HOST_PORT}" if not self.configuration.use_unix_optimization else ""
+        logging.info(f"Server started with a PID={self.pid}{extra_info}, {self.configuration}")
 
     async def _stop_server(self) -> None:
         self.tracker_manager.stop_all_watching()
@@ -131,12 +151,17 @@ def main() -> None:
     parser.add_argument(
         "-ux", "--unix-optimization",
         action="store_true",
-        help="Включить Unix оптимизацию"
+        help="uses UDS for server communication, otherwise TCP/IP. Optimization only works for UNIX"
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "-rl", "--release",
+        action="store_true",
+        help="disable console logging and daemonize the server"
+    )
 
-    server = FileTrackingServer(args.unix_optimization)
+    configuration = Configuration.parse(parser)
+    server = FileTrackingServer(configuration)
 
     try:
         asyncio.run(server.run())
