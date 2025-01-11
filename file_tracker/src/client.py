@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 from core.models.base import DictJsonData
 from core.models.command import Command, AddCommand, RemoveCommand, SimpleCommand, CommandType
 from core.models.result import CommandResult, ListTrackingInfoResult, ListTrackedInfoResult, PingResult, parse_result
-from core.transfer import read_json, write_json, read_json_from_file, write_json_to_file, get_pid, is_process_running
+from core.communication.json_transfer import read_json, write_json, read_json_from_file, write_json_to_file
+from core.communication.system import get_pid, is_process_running
+from response import ResponseFormatter
 
 load_dotenv("var/.env")
 PID_FILE = os.getenv("PID_FILE")
@@ -63,7 +65,13 @@ async def send_command(command: Command) -> CommandResult:
 
 
 def send_ping() -> PingResult:
+    """Send ping command to the server."""
     return asyncio.run(send_command(SimpleCommand(CommandType.PING)))
+
+
+def slim_ping() -> bool:
+    """Simplified server work check."""
+    return os.path.exists(PID_FILE) and is_process_running(get_pid(PID_FILE))
 
 
 @click.group()
@@ -79,8 +87,9 @@ def cli():
 )
 def start(no_optimization: bool) -> None:
     """Start the file tracking server."""
-    if os.path.exists(PID_FILE) and is_process_running(get_pid(PID_FILE)):
-        click.echo(send_ping())  # todo ping upgrade
+    if slim_ping():
+        send_ping()
+        click.echo("Server is already working")
         return
 
     if no_optimization:
@@ -91,61 +100,73 @@ def start(no_optimization: bool) -> None:
         start_cmd += " -ux"
 
     os.system(start_cmd)
-    click.echo("Server started.")
+
+    ping_result = send_ping()
+    click.echo("Server start work with configuration:")
+    click.echo(ResponseFormatter.make_from_configuration(ping_result.configuration))
 
 
 @cli.command()
 def stop() -> None:
     """Stop the file tracking server."""
-    try:
-        state.clear()
-        pid = get_pid(PID_FILE)
-        os.kill(pid, signal.SIGTERM)
-        click.echo("Server stopped.")
-    except FileNotFoundError:
-        click.echo("PID file not found. Is the server running?")
-    except ProcessLookupError:
-        click.echo("Process not found.", err=True)
+    if not slim_ping():
+        click.echo("Server is not running")
+        return
+
+    send_ping()
+    state.clear()
+    pid = get_pid(PID_FILE)
+    os.kill(pid, signal.SIGTERM)
+    click.echo("Server stopped")
 
 
 @cli.command()
 def status() -> None:
     """The status of the file tracking server."""
-    results = send_ping()
-    click.echo(results.configuration)
+    if not slim_ping():
+        click.echo("Server is not running")
+        return
+
+    ping_result = send_ping()
+    click.echo("Server is working with configuration:")
+    click.echo(ResponseFormatter.make_from_configuration(ping_result.configuration))
 
 
 @cli.command()
 @click.argument("file_paths", nargs=-1, type=click.Path())
 def add(file_paths: tuple) -> None:
     """Add files to tracking."""
-    file_paths = list(file_paths)
+    if not slim_ping():
+        click.echo("Server is not running")
+        return
 
+    file_paths = list(file_paths)
     results: ListTrackingInfoResult = asyncio.run(send_command(AddCommand(file_paths)))
-    click.echo("Tracking started for the following files:")
-    for result in results:
-        click.echo(f"- {result.file_path}: {result.status}")  # todo response formatter
+    click.echo(ResponseFormatter.make_from_add(results))
 
 
 @cli.command()
 @click.argument("file_paths", nargs=-1, type=click.Path())
 def remove(file_paths: tuple) -> None:
     """Remove files from tracking."""
-    file_paths = list(file_paths)
+    if not slim_ping():
+        click.echo("Server is not running")
+        return
 
+    file_paths = list(file_paths)
     results: ListTrackingInfoResult = asyncio.run(send_command(RemoveCommand(file_paths)))
-    click.echo("Tracking stopped for the following files:")
-    for result in results:
-        click.echo(f"- {result.file_path}: {result.status}")
+    click.echo(ResponseFormatter.make_from_remove(results))
 
 
 @cli.command(name="list")
 def get_list() -> None:
     """List all tracked files."""
+    if not slim_ping():
+        click.echo("Server is not running")
+        return
+
     results: ListTrackedInfoResult = asyncio.run(send_command(SimpleCommand(CommandType.LIST)))
-    click.echo("Currently tracked files:")
-    for result in results:
-        click.echo(f"- {result.file_path}")
+    click.echo(ResponseFormatter.make_from_list(results))
 
 
 def main() -> None:
@@ -154,8 +175,6 @@ def main() -> None:
     try:
         state = State.read()
         cli()
-    except FileNotFoundError as e:
-        click.echo(f"Error: {e}. Is the server running?", err=True)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
     finally:

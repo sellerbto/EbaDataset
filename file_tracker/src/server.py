@@ -8,7 +8,8 @@ from core.tracker import DirectoryTrackerManager
 from core.models.server import ServerConfiguration
 from core.models.command import CommandType, AddCommand, parse_command
 from core.models.result import ListTrackingInfoResult, PingResult
-from core.transfer import daemonize, read_json, write_json, clear_files, get_tcp_ip_socket
+from core.communication.json_transfer import read_json, write_json
+from core.communication.system import daemonize, clear_files, get_tcp_ip_socket
 
 load_dotenv("var/.env")
 PID_FILE = os.getenv("PID_FILE")

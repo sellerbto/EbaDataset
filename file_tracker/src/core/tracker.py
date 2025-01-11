@@ -129,8 +129,8 @@ class DirectoryTrackerManager:
         if tracker.empty():
             self._remove_tracker(dir_path)
 
-        return TrackingInfoResult(CommandResultType.REMOVE, TrackingStatus.ALREADY, file_path) if is_success \
-            else TrackingInfoResult(CommandResultType.REMOVE, TrackingStatus.COMPLETED, file_path)
+        return TrackingInfoResult(CommandResultType.REMOVE, TrackingStatus.COMPLETED, file_path) if is_success \
+            else TrackingInfoResult(CommandResultType.REMOVE, TrackingStatus.ALREADY, file_path)
 
     def list_watched_files(self) -> ListTrackedInfoResult:
         watched_files: list[TrackedInfoResult] = []
