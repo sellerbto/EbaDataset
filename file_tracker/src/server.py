@@ -1,14 +1,14 @@
 import os
-import sys
 import asyncio
 import signal
 import logging
 import argparse
 from dotenv import load_dotenv
-from dataclasses import dataclass
 from core.tracker import DirectoryTrackerManager
-from core.model import CommandType, AddCommand, TrackingResults, ListTrackedResult, parse_command, PingResult
-from core.transfer import read_json, write_json, clear_files, get_tcp_ip_socket
+from core.models.server import ServerConfiguration
+from core.models.command import CommandType, AddCommand, parse_command
+from core.models.result import ListTrackingInfoResult, PingResult
+from core.transfer import daemonize, read_json, write_json, clear_files, get_tcp_ip_socket
 
 load_dotenv("var/.env")
 PID_FILE = os.getenv("PID_FILE")
@@ -33,48 +33,22 @@ def set_up_logging(release_version: bool) -> None:
     )
 
 
-def daemonize_server() -> None:
-    """Making the process a daemon."""
-    if os.fork() > 0:
-        sys.exit(0)
-
-    os.setsid()
-
-    if os.fork() > 0:
-        sys.exit(0)
-
-    sys.stdout.flush()
-    sys.stderr.flush()
-    with open(os.devnull, 'wb', 0) as null_out:
-        os.dup2(null_out.fileno(), sys.stdout.fileno())
-        os.dup2(null_out.fileno(), sys.stderr.fileno())
-
-
-@dataclass
-class Configuration:
-    use_unix_optimization: bool
-    release_version: bool
-
-    @staticmethod
-    def parse(parser: argparse.ArgumentParser) -> 'Configuration':
-        args = parser.parse_args()
-        return Configuration(use_unix_optimization=args.unix_optimization, release_version=args.release)
-
-
 class FileTrackingServer:
-    def __init__(self, configuration: Configuration) -> None:
+    def __init__(self, configuration: ServerConfiguration) -> None:
         self.configuration = configuration
         self.tracker_manager: DirectoryTrackerManager = None
         self.server: asyncio.Server = None
 
         clear_runtime_files()
         if configuration.release_version:
-            daemonize_server()
+            daemonize()
         set_up_logging(configuration.release_version)
 
         self.pid = os.getpid()
         with open(PID_FILE, "w") as f:
             f.write(str(self.pid))
+
+        self.configuration.set_dynamic(self.pid, HOST_NAME, HOST_PORT)
 
     async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         addr = None
@@ -88,22 +62,22 @@ class FileTrackingServer:
             match command.type:
                 case CommandType.ADD:
                     command: AddCommand
-                    result = TrackingResults(
+                    result = ListTrackingInfoResult(
                         [self.tracker_manager.start_watching(file_path) for file_path in command.file_paths]
                     )
                 case CommandType.REMOVE:
                     command: AddCommand
-                    result = TrackingResults(
+                    result = ListTrackingInfoResult(
                         [self.tracker_manager.stop_watching(file_path) for file_path in command.file_paths]
                     )
                 case CommandType.LIST:
-                    result = ListTrackedResult(self.tracker_manager.list_watched_files())
+                    result = self.tracker_manager.list_watched_files()
                 case CommandType.PING:
-                    result = PingResult(f"The file tracking server is running with a PID={self.pid}")
+                    result = PingResult(self.configuration)
                 case _:
                     raise ValueError(f"Unknown command {command}")
 
-            response_data = result.to_dict()
+            response_data = result.to_json_data()
             logging.info(f"Response for {addr} {response_data}")
             await write_json(writer, response_data)
         except Exception as e:
@@ -160,7 +134,7 @@ def main() -> None:
         help="disable console logging and daemonize the server"
     )
 
-    configuration = Configuration.parse(parser)
+    configuration = ServerConfiguration.parse(parser)
     server = FileTrackingServer(configuration)
 
     try:
