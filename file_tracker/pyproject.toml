@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "File Tracker"
-version = "0.1.0"
-description = "File tracker client"
+version = "0.1.1"
+description = "Client for tracking files"
 authors = ["dimastarsis <kurilin.dmitriy@gmail.com>"]
 readme = "README.md"
 
