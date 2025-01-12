@@ -1,9 +1,11 @@
-// src/components/dataTable/MainDataTable.tsx
+import { nanoid } from 'nanoid'; // импортируем nanoid
 import 'primeicons/primeicons.css';
 import { Button } from 'primereact/button';
 import { Column, ColumnEditorOptions, ColumnEvent } from 'primereact/column';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { DataTable } from 'primereact/datatable';
+import { Dialog } from 'primereact/dialog';
+import { Dropdown } from 'primereact/dropdown';
 import {
     InputNumber,
     InputNumberValueChangeEvent,
@@ -12,58 +14,101 @@ import { InputText } from 'primereact/inputtext';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { ToastContext } from '../../context/toastContext';
-// import { ProductService } from '../../services/productService';
+import { ProductService } from '../../services/productService';
 import { Resource } from '../../types/resource';
 import './dataTable.scss';
 
 const MainDataTable: React.FC = () => {
     const toastContext = useContext(ToastContext);
 
-    const [data, setData] = useState<Resource[]>([
-        {
-            id: '1',
-            name: 'Сервер1',
-            access_rights: 'read',
-            size: 500,
-            host: 'host1',
-            frequency_of_use_in_month: 10,
-            created_at_server: '2023-01-01T10:00:00Z',
-            created_at_host: '2023-01-02T10:00:00Z',
-            last_read: '2023-01-05T10:00:00Z',
-            last_modified: '2023-01-06T10:00:00Z',
-        },
-        {
-            id: '2',
-            name: 'Сервер2',
-            access_rights: 'write',
-            size: 1024,
-            host: 'host2',
-            frequency_of_use_in_month: 5,
-            created_at_server: '2023-02-01T09:00:00Z',
-            created_at_host: '2023-02-02T09:00:00Z',
-            last_read: '2023-02-10T09:00:00Z',
-            last_modified: '2023-02-11T09:00:00Z',
-        },
-        {
-            id: '3',
-            name: 'Сервер3',
-            access_rights: 'admin',
-            size: 250,
-            host: 'host3',
-            frequency_of_use_in_month: 20,
-            created_at_server: '2023-03-01T08:30:00Z',
-            created_at_host: '2023-03-02T08:30:00Z',
-            last_read: '2023-03-10T08:30:00Z',
-            last_modified: '2023-03-11T08:30:00Z',
-        },
-    ]);
-
+    const [data, setData] = useState<Resource[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
+    const [dialogVisible, setDialogVisible] = useState(false);
+    const [newResource, setNewResource] = useState<Resource>({
+        id: nanoid(),
+        name: '',
+        access_rights: 'unknown',
+        size: 0,
+        host: '',
+        frequency_of_use_in_month: 0,
+        created_at_server: '',
+        created_at_host: '',
+        last_read: '',
+        last_modified: '',
+    });
 
-    /*
+    const accessRightsOptions = [
+        { label: 'Read', value: 'read' },
+        { label: 'Write', value: 'write' },
+        { label: 'Admin', value: 'admin' },
+        { label: 'Unknown', value: 'unknown' },
+    ];
+
+    const openAddResourceDialog = () => {
+        setDialogVisible(true);
+    };
+
+    const closeAddResourceDialog = () => {
+        setDialogVisible(false);
+        setNewResource({
+            id: '',
+            name: '',
+            access_rights: 'unknown',
+            size: 0,
+            host: '',
+            frequency_of_use_in_month: 0,
+            created_at_server: '',
+            created_at_host: '',
+            last_read: '',
+            last_modified: '',
+        });
+    };
+
+    const handleAddResource = async () => {
+        if (
+            !newResource.name ||
+            !newResource.access_rights ||
+            !newResource.host
+        ) {
+            alert('Все поля должны быть заполнены');
+            return;
+        }
+
+        if (
+            newResource.size <= 0 ||
+            newResource.frequency_of_use_in_month <= 0
+        ) {
+            alert(
+                'Размер и частота использования должны быть положительными числами.'
+            );
+            return;
+        }
+
+        ProductService.createServer(newResource)
+            .then(addedResource => {
+                setData(prevData => [...prevData, addedResource]);
+                closeAddResourceDialog();
+                toastContext?.show({
+                    severity: 'success',
+                    summary: 'Успех',
+                    detail: 'Ресурс успешно добавлен.',
+                    life: 3000,
+                });
+            })
+            .catch(() => {
+                toastContext?.show({
+                    severity: 'error',
+                    summary: 'Ошибка',
+                    detail: 'Не удалось добавить ресурс.',
+                    life: 3000,
+                });
+            });
+    };
+
     useEffect(() => {
+        setLoading(true);
         ProductService.getServers()
             .then((fetchedData: Resource[]) => {
                 setData(fetchedData);
@@ -79,7 +124,6 @@ const MainDataTable: React.FC = () => {
                 });
             });
     }, [toastContext]);
-    */
 
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
@@ -115,13 +159,6 @@ const MainDataTable: React.FC = () => {
 
         const updatedRow: Resource = { ...rowData, [field]: newValue };
 
-        setData(prevData =>
-            prevData.map(item =>
-                item.id === updatedRow.id ? updatedRow : item
-            )
-        );
-
-        /*
         ProductService.updateServer(updatedRow)
             .then((updatedServer: Resource) => {
                 setData(prevData =>
@@ -144,14 +181,6 @@ const MainDataTable: React.FC = () => {
                     life: 3000,
                 });
             });
-        */
-
-        toastContext?.show({
-            severity: 'success',
-            summary: 'Успех',
-            detail: 'Ресурс успешно обновлен (тестовые данные).',
-            life: 3000,
-        });
     };
 
     const confirmDelete = (rowData: Resource) => {
@@ -160,15 +189,11 @@ const MainDataTable: React.FC = () => {
             header: 'Подтверждение удаления',
             icon: 'pi pi-exclamation-triangle',
             accept: () => {
-                // Удаляем локально
-                setData(prevData =>
-                    prevData.filter(item => item.id !== rowData.id)
-                );
-
-                /*
                 ProductService.deleteServer(rowData.id)
                     .then(() => {
-                        setData(prevData => prevData.filter(item => item.id !== rowData.id));
+                        setData(prevData =>
+                            prevData.filter(item => item.id !== rowData.id)
+                        );
                         toastContext?.show({
                             severity: 'success',
                             summary: 'Успех',
@@ -184,14 +209,6 @@ const MainDataTable: React.FC = () => {
                             life: 3000,
                         });
                     });
-                */
-
-                toastContext?.show({
-                    severity: 'success',
-                    summary: 'Успех',
-                    detail: 'Ресурс успешно удален (тестовые данные).',
-                    life: 3000,
-                });
             },
             reject: () => {
                 toastContext?.show({
@@ -376,6 +393,108 @@ const MainDataTable: React.FC = () => {
                     />
                 </DataTable>
             )}
+            <div className='table-toolbar'>
+                <Button
+                    icon='pi pi-plus'
+                    label='Добавить ресурс'
+                    className='p-button-success p-button-block'
+                    onClick={openAddResourceDialog}
+                />
+            </div>
+            <Dialog
+                header='Добавить новый ресурс'
+                visible={dialogVisible}
+                onHide={closeAddResourceDialog}
+                style={{ width: '50vw' }}
+                footer={
+                    <div>
+                        <Button
+                            label='Отмена'
+                            icon='pi pi-times'
+                            onClick={closeAddResourceDialog}
+                            className='p-button-text'
+                        />
+                        <Button
+                            label='Добавить'
+                            icon='pi pi-check'
+                            onClick={handleAddResource}
+                            className='p-button-text'
+                        />
+                    </div>
+                }
+            >
+                <div className='p-fluid'>
+                    <div className='p-field'>
+                        <label htmlFor='name'>Название</label>
+                        <InputText
+                            id='name'
+                            value={newResource.name}
+                            onChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    name: e.target.value,
+                                })
+                            }
+                            autoFocus
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='access_rights'>Права доступа</label>
+                        <Dropdown
+                            id='access_rights'
+                            value={newResource.access_rights}
+                            options={accessRightsOptions}
+                            onChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    access_rights: e.value,
+                                })
+                            }
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='host'>Хост</label>
+                        <InputText
+                            id='host'
+                            value={newResource.host}
+                            onChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    host: e.target.value,
+                                })
+                            }
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='size'>Размер</label>
+                        <InputNumber
+                            id='size'
+                            value={newResource.size}
+                            onValueChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    size: e.value || 0,
+                                })
+                            }
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='frequency_of_use_in_month'>
+                            Частота использования (мес)
+                        </label>
+                        <InputNumber
+                            id='frequency_of_use_in_month'
+                            value={newResource.frequency_of_use_in_month}
+                            onValueChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    frequency_of_use_in_month: e.value || 0,
+                                })
+                            }
+                        />
+                    </div>
+                </div>
+            </Dialog>
         </div>
     );
 };

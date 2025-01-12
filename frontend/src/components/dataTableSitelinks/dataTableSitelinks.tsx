@@ -9,30 +9,15 @@ import { InputTextarea } from 'primereact/inputtextarea';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
-import { useState } from 'react';
-// import { useAppDispatch, useAppSelector } from '../../store';
-// import {
-//     createOrUpdateLink,
-//     deleteLink,
-//     fetchLinks,
-// } from '../../store/api-actions.ts';
+import { useContext, useEffect, useState } from 'react';
+import { ToastContext } from '../../context/toastContext.tsx';
+import { linkService } from '../../services/linkService.ts';
 import { LinkData } from '../../types/link.ts';
 import './dataTableSitelinks.scss';
 
 const LinkDataTable = () => {
-    const [links, setLinks] = useState<LinkData[]>([
-        {
-            name: 'Google',
-            url: 'https://www.google.com',
-            description: 'Поисковая система',
-        },
-        {
-            name: 'GitHub',
-            url: 'https://github.com',
-            description: 'Хостинг репозиториев',
-        },
-    ]);
-
+    const toastContext = useContext(ToastContext);
+    const [links, setLinks] = useState<LinkData[]>([]);
     const [loading, setLoading] = useState(false);
     const [dialogVisible, setDialogVisible] = useState(false);
     const [newLink, setNewLink] = useState<LinkData>({
@@ -40,6 +25,18 @@ const LinkDataTable = () => {
         url: '',
         description: '',
     });
+
+    //это я дописал
+    useEffect(() => {
+        setLoading(true);
+        linkService
+            .getLinks()
+            .then(fetchedLinks => {
+                setLinks(fetchedLinks);
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
+    }, [toastContext]);
 
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
@@ -51,11 +48,30 @@ const LinkDataTable = () => {
         }
 
         const updatedLink: LinkData = { ...rowData, [field]: newValue };
-        setLinks(prevLinks =>
-            prevLinks.map(link =>
-                link.url === rowData.url ? updatedLink : link
-            )
-        );
+        // это дописал
+        linkService
+            .updateLink(updatedLink)
+            .then(() => {
+                setLinks(prevLinks =>
+                    prevLinks.map(link =>
+                        link.url === rowData.url ? updatedLink : link
+                    )
+                );
+                toastContext?.show({
+                    severity: 'success',
+                    summary: 'Успех',
+                    detail: 'Ресурс успешно изменен.',
+                    life: 3000,
+                });
+            })
+            .catch(() => {
+                toastContext?.show({
+                    severity: 'error',
+                    summary: 'Ошибка',
+                    detail: 'Не удалось изменить ресурс.',
+                    life: 3000,
+                });
+            });
     };
 
     const confirmDelete = (rowData: { url: string; name: string }) => {
@@ -64,9 +80,28 @@ const LinkDataTable = () => {
             header: 'Подтверждение удаления',
             icon: 'pi pi-exclamation-triangle',
             accept: () => {
-                setLinks(prevLinks =>
-                    prevLinks.filter(link => link.url !== rowData.url)
-                );
+                // это написал
+                linkService
+                    .deleteLink(rowData.url)
+                    .then(() => {
+                        setLinks(prevLinks =>
+                            prevLinks.filter(link => link.url !== rowData.url)
+                        );
+                        toastContext?.show({
+                            severity: 'success',
+                            summary: 'Успех',
+                            detail: 'Ресурс успешно удален.',
+                            life: 3000,
+                        });
+                    })
+                    .catch(() => {
+                        toastContext?.show({
+                            severity: 'error',
+                            summary: 'Ошибка',
+                            detail: 'Не удалось удалить ресурс.',
+                            life: 3000,
+                        });
+                    });
             },
         });
     };
@@ -122,8 +157,27 @@ const LinkDataTable = () => {
             return;
         }
 
-        setLinks(prevLinks => [...prevLinks, newLink]);
-        closeAddLinkDialog();
+        // это написал
+        linkService
+            .createLink(newLink)
+            .then(createdLink => {
+                setLinks(prevLinks => [...prevLinks, createdLink]);
+                closeAddLinkDialog();
+                toastContext?.show({
+                    severity: 'success',
+                    summary: 'Успех',
+                    detail: 'Ресурс успешно добавлен.',
+                    life: 3000,
+                });
+            })
+            .catch(() => {
+                toastContext?.show({
+                    severity: 'error',
+                    summary: 'Ошибка',
+                    detail: 'Не удалось добавить ресурс.',
+                    life: 3000,
+                });
+            });
     };
 
     if (loading) {
