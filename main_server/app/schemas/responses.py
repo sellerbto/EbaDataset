@@ -35,6 +35,7 @@ class DatasetInfo(BaseResponse):
     frequency_of_use_in_month: Optional[int] = None
 
 class DatasetsSummary(BaseModel):
+    dataset_general_info_id: int
     name: str
     description: str
     datasets_infos: List[DatasetInfo]

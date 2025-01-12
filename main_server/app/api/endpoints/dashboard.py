@@ -5,30 +5,39 @@ from pydantic import HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.core.db_utils import get_dataset_infos
+from app.core.db_utils import get_dataset_summaries
 from app.core.repository import LinkRepository, \
     DatasetGeneralInfoRepository
 from app.models import Link
-from app.schemas.requests import LinkDescriptionUpdateRequest, DatasetInfoUpdateRequest
+from app.schemas.requests import LinkDescriptionUpdateRequest, DatasetInfoUpdateRequest, DatasetInfoCreateRequest
 from app.schemas.responses import LinkResponse, DatasetsSummary
 
 router = APIRouter()
 
 
-@router.get("/datasets", response_model=DatasetsSummary, description="Get list of dataset infos")
+@router.get("/datasets", response_model=List[DatasetsSummary], description="Get list of dataset infos")
 async def get_datasets_info(
     session: AsyncSession = Depends(deps.get_session)
-) -> DatasetsSummary:
-    return await get_dataset_infos(session)
+) -> List[DatasetsSummary]:
+    return await get_dataset_summaries(session)
 
-@router.post("/datasets", response_model=DatasetsSummary, description="Edits dataset description")
+@router.put("/datasets", response_model=dict, description="Add dataset info")
+async def add_datasets_info(
+    request: DatasetInfoCreateRequest,
+    session: AsyncSession = Depends(deps.get_session)
+) -> dict:
+    repository = DatasetGeneralInfoRepository(session)
+    await repository.add(request.name, request.description)
+    return {"message": "Dataset added successfully"}
+
+@router.post("/datasets", response_model=dict, description="Edits dataset description")
 async def edit_dataset_description(
     request: DatasetInfoUpdateRequest,
     session: AsyncSession = Depends(deps.get_session)
-) -> DatasetsSummary:
+) -> dict:
     repository = DatasetGeneralInfoRepository(session)
-    await repository.edit_description(request.name, request.description)
-    return await get_dataset_infos(session)
+    await repository.edit_description(request.id, request.name, request.description)
+    return {"message": "Dataset description updated successfully"}
 
 @router.post("/links", status_code=status.HTTP_200_OK, response_model=List[LinkResponse])
 async def add_or_update_link(

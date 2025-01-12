@@ -16,6 +16,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
+from typing import List
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, Uuid, func
 from sqlalchemy import Enum, TIMESTAMP
@@ -72,23 +73,21 @@ class Link(Base):
     name: Mapped[str] = mapped_column(String(256), nullable=True)
     description: Mapped[str] = mapped_column(String(1024), nullable=True)
 
-
 class DatasetGeneralInfo(Base):
     __tablename__ = "dataset_general_info"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     description: Mapped[str] = mapped_column(String(1024), nullable=True)
 
-    dataset_id: Mapped[int] = mapped_column(ForeignKey("dataset.id"), nullable=False)
-
-    dataset: Mapped["Dataset"] = relationship("Dataset", back_populates="dataset_general_info", uselist=False)
+    datasets: Mapped[List["Dataset"]] = relationship(
+        "Dataset", back_populates="dataset_general_info", cascade="all, delete-orphan"
+    )
 
 class Dataset(Base):
     __tablename__ = "dataset"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    name: Mapped[str] = mapped_column(String(256), nullable=False)
     file_path: Mapped[str] = mapped_column(String(256), nullable=False)
     access_rights: Mapped[str] = mapped_column(String(3), nullable=False)
     size: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -100,17 +99,19 @@ class Dataset(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    dataset_general_info: Mapped["DatasetGeneralInfo"] = relationship(
-        "DatasetGeneralInfo", back_populates="dataset", uselist=False
+    dataset_general_info_id: Mapped[int] = mapped_column(
+        ForeignKey("dataset_general_info.id"), nullable=False
     )
+    dataset_general_info: Mapped["DatasetGeneralInfo"] = relationship(
+        "DatasetGeneralInfo", back_populates="datasets"
+    )
+
 
 class DatasetUsageHistory(Base):
     __tablename__ = "dataset_usage_history"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    host_name: Mapped[str] = mapped_column(String(256), nullable=False)
-    dataset_name: Mapped[str] = mapped_column(String(256), nullable=False)
-
+    dataset_id: Mapped[int] = mapped_column()
     event_type: Mapped[EventType] = mapped_column(
         Enum(EventType), nullable=False
     )

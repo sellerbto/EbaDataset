@@ -3,8 +3,9 @@ from typing import Optional, Sequence, List
 
 from sqlalchemy import func
 from sqlalchemy import update, delete
-from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from app.models import Dataset, DatasetUsageHistory, EventType, Link, DatasetGeneralInfo
 from app.schemas.requests import DaemonClientRequest, LinkDescriptionUpdateRequest
@@ -14,11 +15,26 @@ class DatasetGeneralInfoRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def edit_description(self, dataset_name: str, new_description: str):
+    async def add(self, name, description):
+        new_record = DatasetGeneralInfo(name=name, description=description)
+        self.session.add(new_record)
+        await self.session.commit()
+        await self.session.refresh(new_record)
+
+    async def get(self, dataset_general_info_id: int, deep: bool = False) -> DatasetGeneralInfo | None:
+        query = select(DatasetGeneralInfo).where(DatasetGeneralInfo.id == dataset_general_info_id)
+        if deep:
+            query = query.options(selectinload(DatasetGeneralInfo.dataset))
+
+        result = await self.session.execute(query)
+        dataset_general_info = result.scalar_one_or_none()
+        return dataset_general_info
+
+    async def edit_description(self, id: int, dataset_name: str, new_description: str):
         stmt = (
             update(DatasetGeneralInfo)
-            .where(DatasetGeneralInfo.name == dataset_name)
-            .values(description=new_description)
+            .where(DatasetGeneralInfo.id == id)
+            .values(name=dataset_name, description=new_description)
         )
 
         await self.session.execute(stmt)
@@ -36,14 +52,12 @@ class DatasetRepository:
 
     async def create_dataset(
             self,
-            name: str,
             size: int,
             created_at_device: datetime,
             access_rights: str,
             host: str,
     ):
         dataset = Dataset(
-            name=name,
             size=size,
             created_at_device=created_at_device,
             access_rights=access_rights,
@@ -97,18 +111,10 @@ class DatasetUsageHistoryRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_usage_events_by_dataset(self, dataset_name: str) -> Sequence[DatasetUsageHistory]:
+    async def get_usage_events_by_dataset_id(self, dataset_id) -> Sequence[DatasetUsageHistory]:
         result = await self.session.execute(
             select(DatasetUsageHistory)
-            .where(DatasetUsageHistory.dataset_name == dataset_name)
-            .order_by(DatasetUsageHistory.event_time.desc())
-        )
-        return result.scalars().all()
-
-    async def get_usage_events_by_host(self, host_name: str) -> Sequence[DatasetUsageHistory]:
-        result = await self.session.execute(
-            select(DatasetUsageHistory)
-            .where(DatasetUsageHistory.host_name == host_name)
+            .where(DatasetUsageHistory.dataset_id == dataset_id)
             .order_by(DatasetUsageHistory.event_time.desc())
         )
         return result.scalars().all()
@@ -119,7 +125,7 @@ class DatasetUsageHistoryRepository:
         )
         await self.session.commit()
 
-    async def add_event(self, client_request: DaemonClientRequest):
+    async def add_event(self, dataset_id, client_request: DaemonClientRequest):
         event_types = [
             EventType.READ,
             EventType.MODIFY,
@@ -133,8 +139,7 @@ class DatasetUsageHistoryRepository:
         events = []
 
         stmt = select(DatasetUsageHistory).filter(
-            DatasetUsageHistory.host_name == client_request.hostname,
-            DatasetUsageHistory.dataset_name == client_request.dataset_name
+            DatasetUsageHistory.dataset_id == dataset_id
         )
         result = await self.session.execute(stmt)
         existing_records = result.scalars().all()
@@ -151,8 +156,7 @@ class DatasetUsageHistoryRepository:
                 latest_event = latest_records[event_type]
                 if event_type == EventType.READ and latest_event.event_time != normalized_time:
                     new_event = DatasetUsageHistory(
-                        host_name=client_request.hostname,
-                        dataset_name=client_request.dataset_name,
+                        dataset_id=dataset_id,
                         event_type=EventType.READ,
                         event_time=normalized_time
                     )
@@ -161,8 +165,7 @@ class DatasetUsageHistoryRepository:
 
                 elif event_type == EventType.MODIFY and latest_event.event_time != normalized_time:
                     new_event = DatasetUsageHistory(
-                        host_name=client_request.hostname,
-                        dataset_name=client_request.dataset_name,
+                        dataset_id=dataset_id,
                         event_type=EventType.MODIFY,
                         event_time=normalized_time
                     )
@@ -170,8 +173,7 @@ class DatasetUsageHistoryRepository:
                     events.append(EventType.MODIFY)
             else:
                 new_event = DatasetUsageHistory(
-                    host_name=client_request.hostname,
-                    dataset_name=client_request.dataset_name,
+                    dataset_id=dataset_id,
                     event_type=event_type,
                     event_time=normalized_time
                 )
@@ -180,8 +182,7 @@ class DatasetUsageHistoryRepository:
 
         if not existing_records:
             create_event = DatasetUsageHistory(
-                host_name=client_request.hostname,
-                dataset_name=client_request.dataset_name,
+                dataset_id=dataset_id,
                 event_type=EventType.CREATE,
                 event_time=self._normalize_event_time(client_request.age)
             )
@@ -199,13 +200,12 @@ class DatasetUsageHistoryRepository:
             else event_time
         )
 
-    async def get_events_statistic_by_time(self, host_name: str, dataset_name: str, timestamp: timedelta):
+    async def get_events_statistic_by_time(self, dataset_id, timestamp: timedelta):
         stmt = select(
             DatasetUsageHistory.event_type,
             func.count(DatasetUsageHistory.event_type).label('event_count')
         ).filter(
-            DatasetUsageHistory.host_name == host_name,
-            DatasetUsageHistory.dataset_name == dataset_name,
+            DatasetUsageHistory.dataset_id == dataset_id,
             datetime.now() - DatasetUsageHistory.event_time > timestamp
         ).group_by(DatasetUsageHistory.event_type)
 
@@ -213,7 +213,7 @@ class DatasetUsageHistoryRepository:
         event_statistics = {event_type: count for event_type, count in result.fetchall()}
         return event_statistics
 
-    async def get_latest_events(self, dataset_name: str) -> dict:
+    async def get_latest_events(self, dataset_id) -> dict:
         """
         Fetch the latest READ and MODIFY events for a given dataset.
         """
@@ -221,7 +221,7 @@ class DatasetUsageHistoryRepository:
             DatasetUsageHistory.event_type,
             func.max(DatasetUsageHistory.event_time).label("latest_event_time")
         ).filter(
-            DatasetUsageHistory.dataset_name == dataset_name
+            DatasetUsageHistory.dataset_id == dataset_id
         ).group_by(DatasetUsageHistory.event_type)
 
         result = await self.session.execute(stmt)
