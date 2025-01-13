@@ -4,14 +4,15 @@ import signal
 import logging
 import argparse
 from dotenv import load_dotenv
-from core.tracker import DirectoryTrackerManager
-from core.models.server import ServerConfiguration
-from core.models.command import CommandType, AddCommand, parse_command
-from core.models.result import ListTrackingInfoResult, PingResult
-from core.communication.json_transfer import read_json, write_json
-from core.communication.system import daemonize, clear_files, get_tcp_ip_socket
+from pathlib import Path
+from .core.tracker import DirectoryTrackerManager
+from .core.models.server import ServerConfiguration
+from .core.models.command import CommandType, AddCommand, parse_command
+from .core.models.result import ListTrackingInfoResult, PingResult
+from .core.communication.json_transfer import read_json, write_json
+from .core.communication.system import daemonize, clear_files, get_tcp_ip_socket
 
-load_dotenv("var/.env")
+load_dotenv(Path("file_tracker") / "var" / ".env")
 PID_FILE = os.getenv("PID_FILE")
 SOCKET_FILE = os.getenv("SOCKET_FILE")
 HOST_NAME = os.getenv("HOST_NAME")

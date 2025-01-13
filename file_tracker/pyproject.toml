@@ -11,6 +11,7 @@ click = "^8.1.8"
 watchdog = "^6.0.0"
 asyncio = "^3.4.3"
 argparse = "^1.4.0"
+pathlib = "^1.0.1"
 
 [tool.poetry.scripts]
 file-tracker = "file_tracker.client:main"
