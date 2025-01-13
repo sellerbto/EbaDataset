@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "file-tracker"
-version = "0.1.1"
+name = "eba-file-tracker"
+version = "0.1.2"
 description = "client for tracking files"
 authors = ["dimastarsis <kurilin.dmitriy@gmail.com>"]
 readme = "README.md"
@@ -14,7 +14,7 @@ argparse = "^1.4.0"
 pathlib = "^1.0.1"
 
 [tool.poetry.scripts]
-file-tracker = "file_tracker.client:main"
+file-tracker = "eba_file_tracker.client:main"
 
 [build-system]
 requires = ["poetry-core"]

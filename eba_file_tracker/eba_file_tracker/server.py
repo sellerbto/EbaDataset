@@ -12,7 +12,7 @@ from .core.models.result import ListTrackingInfoResult, PingResult
 from .core.communication.json_transfer import read_json, write_json
 from .core.communication.system import daemonize, clear_files, get_tcp_ip_socket
 
-load_dotenv(Path("file_tracker") / "var" / ".env")
+load_dotenv(Path("eba_file_tracker") / "var" / ".env")
 PID_FILE = os.getenv("PID_FILE")
 SOCKET_FILE = os.getenv("SOCKET_FILE")
 HOST_NAME = os.getenv("HOST_NAME")

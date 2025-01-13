@@ -11,7 +11,7 @@ from .core.communication.json_transfer import read_json, write_json, read_json_f
 from .core.communication.system import get_pid, is_process_running
 from .response import ResponseFormatter
 
-load_dotenv(Path("file_tracker") / "var" / ".env")
+load_dotenv(Path("eba_file_tracker") / "var" / ".env")
 PID_FILE = os.getenv("PID_FILE")
 SOCKET_FILE = os.getenv("SOCKET_FILE")
 HOST_NAME = os.getenv("HOST_NAME")
@@ -96,7 +96,7 @@ def start(no_optimization: bool) -> None:
     if no_optimization:
         state.use_unix_optimization = False
 
-    server_path = Path("file_tracker.server")
+    server_path = Path("eba_file_tracker.server")
     start_cmd = f"python3 -m {server_path} -rl"
     if state.use_unix_optimization:
         start_cmd += " -ux"
