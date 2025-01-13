@@ -1,5 +1,5 @@
-from core.models.server import ServerConfiguration
-from core.models.result import TrackingStatus, CommandResultType, ListTrackingInfoResult, ListTrackedInfoResult
+from .core.models.server import ServerConfiguration
+from .core.models.result import TrackingStatus, CommandResultType, ListTrackingInfoResult, ListTrackedInfoResult
 
 
 class ResponseFormatter:

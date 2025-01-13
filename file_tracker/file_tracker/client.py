@@ -3,14 +3,14 @@ import asyncio
 import signal
 import click
 from dotenv import load_dotenv
-from core.models.base import DictJsonData
-from core.models.command import Command, AddCommand, RemoveCommand, SimpleCommand, CommandType
-from core.models.result import CommandResult, ListTrackingInfoResult, ListTrackedInfoResult, PingResult, parse_result
-from core.communication.json_transfer import read_json, write_json, read_json_from_file, write_json_to_file
-from core.communication.system import get_pid, is_process_running
-from response import ResponseFormatter
+from .core.models.base import DictJsonData
+from .core.models.command import Command, AddCommand, RemoveCommand, SimpleCommand, CommandType
+from .core.models.result import CommandResult, ListTrackingInfoResult, ListTrackedInfoResult, PingResult, parse_result
+from .core.communication.json_transfer import read_json, write_json, read_json_from_file, write_json_to_file
+from .core.communication.system import get_pid, is_process_running
+from .response import ResponseFormatter
 
-load_dotenv("var/.env")
+load_dotenv("file_tracker/var/.env")
 PID_FILE = os.getenv("PID_FILE")
 SOCKET_FILE = os.getenv("SOCKET_FILE")
 HOST_NAME = os.getenv("HOST_NAME")
@@ -95,7 +95,7 @@ def start(no_optimization: bool) -> None:
     if no_optimization:
         state.use_unix_optimization = False
 
-    start_cmd = "python3 server.py -rl"
+    start_cmd = "python3 file_tracker/server.py -rl"
     if state.use_unix_optimization:
         start_cmd += " -ux"
 
@@ -171,9 +171,9 @@ def get_list() -> None:
 
 def main() -> None:
     global state
+    state = State.read()
 
     try:
-        state = State.read()
         cli()
     except Exception as e:
         click.echo(f"Error: {e}", err=True)

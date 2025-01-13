@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "File Tracker"
+name = "file-tracker"
 version = "0.1.1"
-description = "Client for tracking files"
+description = "client for tracking files"
 authors = ["dimastarsis <kurilin.dmitriy@gmail.com>"]
 readme = "README.md"
 
@@ -12,6 +12,8 @@ watchdog = "^6.0.0"
 asyncio = "^3.4.3"
 argparse = "^1.4.0"
 
+[tool.poetry.scripts]
+file-tracker = "file_tracker.client:main"
 
 [build-system]
 requires = ["poetry-core"]
