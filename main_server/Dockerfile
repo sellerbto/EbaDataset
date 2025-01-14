@@ -1,6 +1,7 @@
+# main_server/Dockerfile
 FROM python:3.12.5-slim-bullseye as base
 
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 WORKDIR /build
 
 # Create requirements.txt file
@@ -26,12 +27,15 @@ COPY alembic.ini .
 COPY pyproject.toml .
 COPY init.sh .
 
-# Create new user to run app process as unprivilaged user
+# Create new user to run the app
 RUN addgroup --gid 1001 --system uvicorn && \
     adduser --gid 1001 --shell /bin/false --disabled-password --uid 1001 uvicorn
 
-# Run init.sh script then start uvicorn
+# Fix ownership
 RUN chown -R uvicorn:uvicorn /build
-CMD bash init.sh && \
-    runuser -u uvicorn -- /venv/bin/uvicorn app.main:app --app-dir /build --host 0.0.0.0 --port 8000 --workers 2 --loop uvloop
+
 EXPOSE 8000
+USER uvicorn
+
+CMD bash init.sh && \
+    uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --loop uvloop
