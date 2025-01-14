@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Sequence, List
 
-from sqlalchemy import func
+from sqlalchemy import func, desc
 from sqlalchemy import update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import Dataset, DatasetUsageHistory, EventType, Link, DatasetGeneralInfo
 from app.schemas.requests import DaemonClientRequest, LinkDescriptionUpdateRequest
+from app.schemas.responses import Statistic
 
 
 class DatasetGeneralInfoRepository:
@@ -200,18 +201,40 @@ class DatasetUsageHistoryRepository:
             else event_time
         )
 
-    async def get_events_statistic_by_time(self, dataset_id, timestamp: timedelta):
-        stmt = select(
+    async def get_events_statistic_by_time(self, dataset_id, timestamp: timedelta = timedelta(days=30)):
+        stmt_count = select(
             DatasetUsageHistory.event_type,
             func.count(DatasetUsageHistory.event_type).label('event_count')
         ).filter(
             DatasetUsageHistory.dataset_id == dataset_id,
-            datetime.now() - DatasetUsageHistory.event_time > timestamp
+            datetime.now() - DatasetUsageHistory.event_time <= timestamp
         ).group_by(DatasetUsageHistory.event_type)
 
-        result = await self.session.execute(stmt)
-        event_statistics = {event_type: count for event_type, count in result.fetchall()}
-        return event_statistics
+        stmt_last_read = select(DatasetUsageHistory.event_time).filter(
+            DatasetUsageHistory.dataset_id == dataset_id,
+            DatasetUsageHistory.event_type == EventType.READ
+        ).order_by(desc(DatasetUsageHistory.event_time)).limit(1)
+
+        stmt_last_modified = select(DatasetUsageHistory.event_time).filter(
+            DatasetUsageHistory.dataset_id == dataset_id,
+            DatasetUsageHistory.event_type == EventType.MODIFY
+        ).order_by(desc(DatasetUsageHistory.event_time)).limit(1)
+
+        result_count = await self.session.execute(stmt_count)
+        last_read_result = await self.session.execute(stmt_last_read)
+        last_modified_result = await self.session.execute(stmt_last_modified)
+
+        event_statistics = {event_type: count for event_type, count in result_count.fetchall()}
+        last_read = last_read_result.scalar()
+        last_modified = last_modified_result.scalar()
+
+        frequency_of_use = sum(event_statistics.values())
+
+        return Statistic(
+            last_read=last_read,
+            last_modified=last_modified,
+            frequency_of_use_in_month=frequency_of_use
+        )
 
     async def get_latest_events(self, dataset_id) -> dict:
         """

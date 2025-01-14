@@ -24,8 +24,10 @@ async def add_usage_event(
 
     dataset_query = select(Dataset).filter(
         Dataset.file_path == client_request.file_path,
-        Dataset.host == client_request.hostname
+        Dataset.host == client_request.hostname,
+        Dataset.dataset_general_info_id == client_request.dataset_general_info_id
     )
+
     result = await session.execute(dataset_query)
     dataset = result.scalar_one_or_none()
     print(f'DATASET = {dataset}')
