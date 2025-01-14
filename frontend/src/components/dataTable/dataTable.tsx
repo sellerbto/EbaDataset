@@ -1,9 +1,11 @@
-// src/components/dataTable/MainDataTable.tsx
+import { nanoid } from 'nanoid'; // импортируем nanoid
 import 'primeicons/primeicons.css';
 import { Button } from 'primereact/button';
 import { Column, ColumnEditorOptions, ColumnEvent } from 'primereact/column';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { DataTable } from 'primereact/datatable';
+import { Dialog } from 'primereact/dialog';
+import { Dropdown } from 'primereact/dropdown';
 import {
     InputNumber,
     InputNumberValueChangeEvent,
@@ -19,11 +21,94 @@ import { Resource } from '../../types/resource';
 import './dataTable.scss';
 
 const MainDataTable: React.FC = () => {
-    const [data, setData] = useState<Resource[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
     const toastContext = useContext(ToastContext);
 
+    const [data, setData] = useState<Resource[]>([]);
+    const [loading, setLoading] = useState<boolean>(false);
+    const [dialogVisible, setDialogVisible] = useState(false);
+    const [newResource, setNewResource] = useState<Resource>({
+        id: nanoid(),
+        name: '',
+        access_rights: 'unknown',
+        size: 0,
+        host: '',
+        frequency_of_use_in_month: 0,
+        created_at_server: '',
+        created_at_host: '',
+        last_read: '',
+        last_modified: '',
+    });
+
+    const accessRightsOptions = [
+        { label: 'Read', value: 'read' },
+        { label: 'Write', value: 'write' },
+        { label: 'Admin', value: 'admin' },
+        { label: 'Unknown', value: 'unknown' },
+    ];
+
+    const openAddResourceDialog = () => {
+        setDialogVisible(true);
+    };
+
+    const closeAddResourceDialog = () => {
+        setDialogVisible(false);
+        setNewResource({
+            id: '',
+            name: '',
+            access_rights: 'unknown',
+            size: 0,
+            host: '',
+            frequency_of_use_in_month: 0,
+            created_at_server: '',
+            created_at_host: '',
+            last_read: '',
+            last_modified: '',
+        });
+    };
+
+    const handleAddResource = async () => {
+        if (
+            !newResource.name ||
+            !newResource.access_rights ||
+            !newResource.host
+        ) {
+            alert('Все поля должны быть заполнены');
+            return;
+        }
+
+        if (
+            newResource.size <= 0 ||
+            newResource.frequency_of_use_in_month <= 0
+        ) {
+            alert(
+                'Размер и частота использования должны быть положительными числами.'
+            );
+            return;
+        }
+
+        ProductService.createServer(newResource)
+            .then(addedResource => {
+                setData(prevData => [...prevData, addedResource]);
+                closeAddResourceDialog();
+                toastContext?.show({
+                    severity: 'success',
+                    summary: 'Успех',
+                    detail: 'Ресурс успешно добавлен.',
+                    life: 3000,
+                });
+            })
+            .catch(() => {
+                toastContext?.show({
+                    severity: 'error',
+                    summary: 'Ошибка',
+                    detail: 'Не удалось добавить ресурс.',
+                    life: 3000,
+                });
+            });
+    };
+
     useEffect(() => {
+        setLoading(true);
         ProductService.getServers()
             .then((fetchedData: Resource[]) => {
                 setData(fetchedData);
@@ -43,7 +128,6 @@ const MainDataTable: React.FC = () => {
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
 
-        // Валидация введённых данных
         if (
             (field === 'size' || field === 'frequency_of_use_in_month') &&
             (typeof newValue !== 'number' || newValue < 0)
@@ -52,9 +136,10 @@ const MainDataTable: React.FC = () => {
             toastContext?.show({
                 severity: 'warn',
                 summary: 'Предупреждение',
-                detail: `${
-                    field === 'size' ? 'Размер' : 'Частота использования'
-                } должно быть положительным числом.`,
+                detail:
+                    field === 'size'
+                        ? 'Размер должен быть положительным числом.'
+                        : 'Частота использования должна быть положительным числом.',
                 life: 3000,
             });
             return;
@@ -72,10 +157,8 @@ const MainDataTable: React.FC = () => {
             return;
         }
 
-        // Создание обновлённого объекта
         const updatedRow: Resource = { ...rowData, [field]: newValue };
 
-        // Отправка обновления на сервер
         ProductService.updateServer(updatedRow)
             .then((updatedServer: Resource) => {
                 setData(prevData =>
@@ -97,7 +180,6 @@ const MainDataTable: React.FC = () => {
                     detail: 'Не удалось обновить ресурс.',
                     life: 3000,
                 });
-                setData(prevData => [...prevData]); // Можно восстановить предыдущее состояние, если требуется
             });
     };
 
@@ -129,7 +211,6 @@ const MainDataTable: React.FC = () => {
                     });
             },
             reject: () => {
-                // Опционально: действия при отклонении
                 toastContext?.show({
                     severity: 'info',
                     summary: 'Отменено',
@@ -169,6 +250,17 @@ const MainDataTable: React.FC = () => {
             options.field === 'frequency_of_use_in_month'
         ) {
             return numberEditor(options);
+        } else if (options.field === 'access_rights') {
+            return (
+                <InputText
+                    type='text'
+                    value={options.value}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        options.editorCallback?.(e.target.value)
+                    }
+                    onKeyDown={e => e.stopPropagation()}
+                />
+            );
         } else {
             return textEditor(options);
         }
@@ -211,7 +303,7 @@ const MainDataTable: React.FC = () => {
                 >
                     <Column
                         field='name'
-                        header='Name'
+                        header='Название'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '15%' }}
@@ -220,34 +312,34 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='access_rights'
-                        header='Access Rights'
+                        header='Права доступа'
                         sortable
                         headerClassName='centered-header'
-                        style={{ width: '15%' }}
+                        style={{ width: '5%' }}
                         editor={options => cellEditor(options)}
                         onCellEditComplete={onCellEditComplete}
                     />
                     <Column
                         field='size'
-                        header='Size'
+                        header='Размер'
                         sortable
                         headerClassName='centered-header'
-                        style={{ width: '10%' }}
+                        style={{ width: '5%' }}
                         editor={options => cellEditor(options)}
                         onCellEditComplete={onCellEditComplete}
                     />
                     <Column
                         field='host'
-                        header='Host'
+                        header='Хост'
                         sortable
                         headerClassName='centered-header'
-                        style={{ width: '15%' }}
+                        style={{ width: '5%' }}
                         editor={options => cellEditor(options)}
                         onCellEditComplete={onCellEditComplete}
                     />
                     <Column
                         field='frequency_of_use_in_month'
-                        header='Freq. of Use/Month'
+                        header='Частота использования (мес)'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -256,7 +348,7 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='created_at_server'
-                        header='Created at Server'
+                        header='Дата создания на сервере'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -266,7 +358,7 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='created_at_host'
-                        header='Created at Host'
+                        header='Дата создания на хосте'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -276,7 +368,7 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='last_read'
-                        header='Last Read'
+                        header='Последнее чтение'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -286,7 +378,7 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='last_modified'
-                        header='Last Modified'
+                        header='Последнее изменение'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -295,12 +387,114 @@ const MainDataTable: React.FC = () => {
                         }
                     />
                     <Column
-                        header='Delete'
+                        header='Удалить'
                         body={deleteBodyTemplate}
                         style={{ width: '5%', textAlign: 'center' }}
                     />
                 </DataTable>
             )}
+            <div className='table-toolbar'>
+                <Button
+                    icon='pi pi-plus'
+                    label='Добавить ресурс'
+                    className='p-button-success p-button-block'
+                    onClick={openAddResourceDialog}
+                />
+            </div>
+            <Dialog
+                header='Добавить новый ресурс'
+                visible={dialogVisible}
+                onHide={closeAddResourceDialog}
+                style={{ width: '50vw' }}
+                footer={
+                    <div>
+                        <Button
+                            label='Отмена'
+                            icon='pi pi-times'
+                            onClick={closeAddResourceDialog}
+                            className='p-button-text'
+                        />
+                        <Button
+                            label='Добавить'
+                            icon='pi pi-check'
+                            onClick={handleAddResource}
+                            className='p-button-text'
+                        />
+                    </div>
+                }
+            >
+                <div className='p-fluid'>
+                    <div className='p-field'>
+                        <label htmlFor='name'>Название</label>
+                        <InputText
+                            id='name'
+                            value={newResource.name}
+                            onChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    name: e.target.value,
+                                })
+                            }
+                            autoFocus
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='access_rights'>Права доступа</label>
+                        <Dropdown
+                            id='access_rights'
+                            value={newResource.access_rights}
+                            options={accessRightsOptions}
+                            onChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    access_rights: e.value,
+                                })
+                            }
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='host'>Хост</label>
+                        <InputText
+                            id='host'
+                            value={newResource.host}
+                            onChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    host: e.target.value,
+                                })
+                            }
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='size'>Размер</label>
+                        <InputNumber
+                            id='size'
+                            value={newResource.size}
+                            onValueChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    size: e.value || 0,
+                                })
+                            }
+                        />
+                    </div>
+                    <div className='p-field'>
+                        <label htmlFor='frequency_of_use_in_month'>
+                            Частота использования (мес)
+                        </label>
+                        <InputNumber
+                            id='frequency_of_use_in_month'
+                            value={newResource.frequency_of_use_in_month}
+                            onValueChange={e =>
+                                setNewResource({
+                                    ...newResource,
+                                    frequency_of_use_in_month: e.value || 0,
+                                })
+                            }
+                        />
+                    </div>
+                </div>
+            </Dialog>
         </div>
     );
 };
