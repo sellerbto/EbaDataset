@@ -4,10 +4,16 @@ from .base import JsonSerializable, DictJsonData
 
 
 @dataclass
+class File(JsonSerializable):
+    file_path: str
+    file_id: int
+
+
+@dataclass
 class FileMetadata(JsonSerializable):
     hostname: str
     file_path: str
-    dataset_name: str
+    file_id: int
     age: datetime
     access_rights: str
     last_access_date: datetime
@@ -21,6 +27,14 @@ class FileMetadata(JsonSerializable):
             json_data[field.name] = value
 
         return json_data
+
+    @staticmethod
+    def is_correct(json_data: DictJsonData) -> bool:
+        for field in fields(FileMetadata):
+            if field.name not in json_data:
+                return False
+
+        return True
 
     @staticmethod
     def from_json_data(json_data: DictJsonData) -> 'FileMetadata':

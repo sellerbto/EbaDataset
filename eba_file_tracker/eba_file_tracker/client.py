@@ -5,8 +5,9 @@ import click
 from dotenv import load_dotenv
 from pathlib import Path
 from .core.models.base import DictJsonData
-from .core.models.command import Command, AddCommand, RemoveCommand, SimpleCommand, CommandType
-from .core.models.result import CommandResult, ListTrackingInfoResult, ListTrackedInfoResult, PingResult, parse_result
+from .core.models.command import Command, AddCommand, RemoveCommand, InfoCommand, SimpleCommand, CommandType
+from .core.models.result import CommandResult, ListTrackingInfoResult, ListTrackedInfoResult, PingResult, InfoResult, \
+    parse_result
 from .core.communication.json_transfer import read_json, write_json, read_json_from_file, write_json_to_file
 from .core.communication.system import get_pid, is_process_running
 from .response import ResponseFormatter
@@ -135,16 +136,32 @@ def status() -> None:
 
 
 @cli.command()
-@click.argument("file_paths", nargs=-1, type=click.Path())
-def add(file_paths: tuple) -> None:
-    """Add files to tracking."""
+@click.argument('file_path', type=click.Path(exists=True, dir_okay=False))
+@click.argument('file_id', type=int)
+def add(file_path: str, file_id: int) -> None:
+    """
+    Add files to tracking.
+    :param file_path: full path to the file
+    :param file_id: id of the file from the main serve.
+    """
     if not slim_ping():
         click.echo("Server is not running")
         return
 
-    file_paths = list(file_paths)
-    results: ListTrackingInfoResult = asyncio.run(send_command(AddCommand(file_paths)))
+    results: ListTrackingInfoResult = asyncio.run(send_command(AddCommand(file_path, file_id)))
     click.echo(ResponseFormatter.make_from_add(results))
+
+
+@cli.command()
+@click.argument('file_path', type=click.Path(exists=True, dir_okay=False))
+def info(file_path: str) -> None:
+    """Information about the tracked file."""
+    if not slim_ping():
+        click.echo("Server is not running")
+        return
+
+    results: InfoResult = asyncio.run(send_command(InfoCommand(file_path)))
+    click.echo(ResponseFormatter.make_from_info(results))
 
 
 @cli.command()

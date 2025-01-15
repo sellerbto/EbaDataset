@@ -1,5 +1,6 @@
 from .core.models.server import ServerConfiguration
-from .core.models.result import TrackingStatus, CommandResultType, ListTrackingInfoResult, ListTrackedInfoResult
+from .core.models.result import TrackingStatus, CommandResultType, ListTrackingInfoResult, ListTrackedInfoResult, \
+    InfoResult
 
 
 class ResponseFormatter:
@@ -15,7 +16,7 @@ class ResponseFormatter:
 
     @staticmethod
     def make_from_add(add_results: ListTrackingInfoResult) -> str:
-        response = ["The result of adding files to tracking:"]
+        response = []
         for result in add_results:
             if result.type != CommandResultType.ADD:
                 raise ValueError(result.type.value)
@@ -46,6 +47,21 @@ class ResponseFormatter:
                     response.append(f"- file not found: {result.file_path}")
                 case _:
                     raise ValueError(result.status)
+
+        return '\n'.join(response)
+
+    @staticmethod
+    def make_from_info(result: InfoResult) -> str:
+        response = []
+        if result.type != CommandResultType.INFO:
+            raise ValueError(result.type.value)
+
+        if not result.metadata:
+            response.append("- file is not tracked")
+        else:
+            json_data = result.to_json_data()
+            for key in json_data.keys():
+                response.append(f"- {key}={json_data[key]}")
 
         return '\n'.join(response)
 

@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 from .core.tracker import DirectoryTrackerManager
 from .core.models.server import ServerConfiguration
-from .core.models.command import CommandType, AddCommand, parse_command
-from .core.models.result import ListTrackingInfoResult, PingResult
+from .core.models.command import CommandType, AddCommand, RemoveCommand, InfoCommand, parse_command
+from .core.models.result import ListTrackingInfoResult, PingResult, InfoResult
 from .core.communication.json_transfer import read_json, write_json
 from .core.communication.system import daemonize, clear_files, get_tcp_ip_socket
 
@@ -65,13 +65,16 @@ class FileTrackingServer:
                 case CommandType.ADD:
                     command: AddCommand
                     result = ListTrackingInfoResult(
-                        [self.tracker_manager.start_watching(file_path) for file_path in command.file_paths]
+                        [self.tracker_manager.start_watching(command.file)]
                     )
                 case CommandType.REMOVE:
-                    command: AddCommand
+                    command: RemoveCommand
                     result = ListTrackingInfoResult(
                         [self.tracker_manager.stop_watching(file_path) for file_path in command.file_paths]
                     )
+                case CommandType.INFO:
+                    command: InfoCommand
+                    result = InfoResult(self.tracker_manager.get_file_info(command.file_path))
                 case CommandType.LIST:
                     result = self.tracker_manager.list_watched_files()
                 case CommandType.PING:

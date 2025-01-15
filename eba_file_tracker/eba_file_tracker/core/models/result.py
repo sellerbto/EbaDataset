@@ -8,6 +8,7 @@ from .server import ServerConfiguration
 
 class CommandResultType(Enum):
     ADD = 'add'
+    INFO = 'info'
     REMOVE = 'remove'
     LIST = 'list'
     PING = 'ping'
@@ -89,8 +90,8 @@ class ListTrackingInfoResult(CommandResult):
 class TrackedInfoResult(CommandResult):
     type = CommandResultType.LIST
 
-    def __init__(self, meta: FileMetadata) -> None:
-        self.file_path: str = meta.file_path
+    def __init__(self, file_path: str) -> None:
+        self.file_path = file_path
 
     def to_json_data(self) -> DictJsonData:
         return {
@@ -103,7 +104,7 @@ class TrackedInfoResult(CommandResult):
         cmd_type = CommandResultType.parse(json_data)
         if cmd_type != TrackedInfoResult.type:
             raise ValueError(cmd_type)
-        return TrackedInfoResult(FileMetadata.from_json_data(json_data))
+        return TrackedInfoResult(json_data['file_path'])
 
 
 class ListTrackedInfoResult(CommandResult):
@@ -139,10 +140,32 @@ class PingResult(CommandResult):
         return PingResult(ServerConfiguration.from_json_data(json_data))
 
 
+class InfoResult(CommandResult):
+    def __init__(self, metadata: FileMetadata | None) -> None:
+        self.type = CommandResultType.INFO
+        self.metadata = metadata
+
+    def to_json_data(self) -> DictJsonData:
+        json_data = self.metadata.to_json_data() if self.metadata else {}
+        json_data['command_result'] = self.type.value
+        return json_data
+
+    @staticmethod
+    def from_json_data(json_data: DictJsonData) -> 'InfoResult':
+        cmd_type = CommandResultType.parse(json_data)
+        if cmd_type != CommandResultType.INFO:
+            raise ValueError(cmd_type)
+
+        metadata = FileMetadata.from_json_data(json_data) if FileMetadata.is_correct(json_data) else None
+        return InfoResult(metadata)
+
+
 def parse_result(cmd_type: CommandType, json_data: JsonData) -> 'CommandResult':
     match cmd_type:
         case CommandType.ADD | CommandType.REMOVE:
             return ListTrackingInfoResult.from_json_data(json_data)
+        case CommandType.INFO:
+            return InfoResult.from_json_data(json_data)
         case CommandType.LIST:
             return ListTrackedInfoResult.from_json_data(json_data)
         case CommandType.PING:
