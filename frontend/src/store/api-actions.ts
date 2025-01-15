@@ -7,6 +7,7 @@ import { AppDispatch } from '../types/state.ts';
 import { setErrorMessage } from './slice.ts';
 // Импортируем наши новые (или обновлённые) интерфейсы
 import { DatasetsSummary } from '../types/datasetTypes.ts';
+import {Resource} from "../types/resource.ts";
 
 // ---------------- LINKS ACTIONS ----------------
 
@@ -64,15 +65,31 @@ export const deleteLink = createAsyncThunk<
  * Возвращается массив DatasetsSummary (List[DatasetsSummary]).
  */
 export const fetchDatasets = createAsyncThunk<
-    DatasetsSummary[],
+    Resource[],
     undefined,
     { extra: AxiosInstance }
->('fetchDatasets', async (_, { extra: api }) => {
-    // Бэкенд возвращает List[DatasetsSummary].
-    const { data } = await api.get<DatasetsSummary[]>(ApiRoute.Datasets);
-    // data уже массив DatasetsSummary. Его и вернём в Redux.
-    return data;
+>('fetchResources', async (_, { extra: api }) => {
+    const { data: datasetsSummary } = await api.get<DatasetsSummary[]>(ApiRoute.Datasets);
+
+    const resources: Resource[] = datasetsSummary.flatMap((dataset) =>
+        dataset.datasets_infos.map((info) => ({
+            id: dataset.dataset_general_info_id,
+            name: dataset.name,
+            description: dataset.description,
+            access_rights: 'unknown',
+            size: info.size,
+            host: info.host,
+            created_at_server: info.created_at_server ?? '',
+            created_at_host: info.created_at_host ?? '',
+            last_read: info.last_read ?? '',
+            last_modified: info.last_modified ?? '',
+            frequency_of_use_in_month: info.frequency_of_use_in_month ?? 0,
+        }))
+    );
+
+    return resources;
 });
+
 
 /**
  * Добавить новый датасет (PUT /datasets).
