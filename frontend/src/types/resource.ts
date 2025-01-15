@@ -1,5 +1,5 @@
 export interface Resource {
-    id: string;
+    id: number;
     name: string;
     description: string;
     access_rights: 'read' | 'write' | 'admin' | 'unknown';

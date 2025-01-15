@@ -10,7 +10,7 @@ from app.core.repository import LinkRepository, \
     DatasetGeneralInfoRepository
 from app.models import Link
 from app.schemas.requests import LinkDescriptionUpdateRequest, DatasetInfoUpdateRequest, DatasetInfoCreateRequest
-from app.schemas.responses import LinkResponse, DatasetsSummary
+from app.schemas.responses import LinkResponse, DatasetsSummary, DatasetInfoUpdateResponse
 
 router = APIRouter()
 
@@ -29,14 +29,15 @@ async def add_datasets_info(
     new_dataset_summary = await repository.add(request.name, request.description)
     return new_dataset_summary
 
-@router.post("/datasets", response_model=dict, description="Edits dataset description")
+@router.post("/datasets", response_model=DatasetInfoUpdateResponse, description="Edits dataset description")
 async def edit_dataset_description(
     request: DatasetInfoUpdateRequest,
     session: AsyncSession = Depends(deps.get_session)
-) -> dict:
+) -> DatasetInfoUpdateResponse:
     repository = DatasetGeneralInfoRepository(session)
     await repository.edit_description(request.id, request.name, request.description)
-    return {"message": "Dataset description updated successfully"}
+    return DatasetInfoUpdateResponse(message="Dataset description updated")
+
 
 @router.post("/links", status_code=status.HTTP_200_OK, response_model=List[LinkResponse])
 async def add_or_update_link(

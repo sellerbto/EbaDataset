@@ -27,22 +27,24 @@ class DaemonClientRequest(BaseRequest):
     dataset_general_info_id: int
     hostname: str
     file_path: str
-    dataset_name: str
     age: datetime
     access_rights: str
     last_access_date: datetime
     last_modification_date: datetime
     size: int
 
+
 class LinkDescriptionUpdateRequest(BaseModel):
     url: HttpUrl
     name: Optional[str] = None
     description: Optional[str] = None
 
+
 class DatasetInfoUpdateRequest(BaseRequest):
     id: int
     name: str
-    description: Optional[str] = None
+    description: str
+
 
 class DatasetInfoCreateRequest(BaseRequest):
     name: str
