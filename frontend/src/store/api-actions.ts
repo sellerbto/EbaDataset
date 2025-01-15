@@ -3,10 +3,16 @@ import { AxiosInstance } from 'axios';
 import { TIMEOUT_SHOW_ERROR } from '../const.ts';
 import { ApiRoute } from '../enums/apiRoute.ts';
 import { LinkData } from '../types/link.ts';
-import { Resource } from '../types/resource.ts';
 import { AppDispatch } from '../types/state.ts';
 import { setErrorMessage } from './slice.ts';
+// Импортируем наши новые (или обновлённые) интерфейсы
+import { DatasetsSummary } from '../types/datasetTypes.ts';
 
+// ---------------- LINKS ACTIONS ----------------
+
+/**
+ * Получить все ссылки (GET /links).
+ */
 export const fetchLinks = createAsyncThunk<
     LinkData[],
     undefined,
@@ -14,10 +20,15 @@ export const fetchLinks = createAsyncThunk<
         extra: AxiosInstance;
     }
 >('fetchLinks', async (_, { extra: api }) => {
+    // Бэкенд возвращает List[LinkResponse].
+    // На фронте у вас LinkData и LinkResponse примерно совпадают?
     const { data } = await api.get<LinkData[]>(ApiRoute.Links);
     return data;
 });
 
+/**
+ * Создать или обновить ссылку (POST /links).
+ */
 export const createOrUpdateLink = createAsyncThunk<
     LinkData[],
     LinkData,
@@ -29,6 +40,9 @@ export const createOrUpdateLink = createAsyncThunk<
     return data;
 });
 
+/**
+ * Удалить ссылку (DELETE /links).
+ */
 export const deleteLink = createAsyncThunk<
     LinkData[],
     string,
@@ -36,53 +50,73 @@ export const deleteLink = createAsyncThunk<
         extra: AxiosInstance;
     }
 >('deleteLink', async (link_url, { extra: api }) => {
+    // Параметры передаются в query ?link_url=...
     const { data } = await api.delete<LinkData[]>(ApiRoute.Links, {
         params: { link_url: link_url },
     });
     return data;
 });
 
+// ---------------- DATASETS ACTIONS ----------------
+
 /**
- * Получить список всех датасетов (GET /datasets)
+ * Получить список всех датасетов (GET /datasets).
+ * Возвращается массив DatasetsSummary (List[DatasetsSummary]).
  */
 export const fetchDatasets = createAsyncThunk<
-    Resource[],
+    DatasetsSummary[],
     undefined,
     { extra: AxiosInstance }
 >('fetchDatasets', async (_, { extra: api }) => {
-    const { data } = await api.get<Resource[]>(ApiRoute.Datasets);
+    // Бэкенд возвращает List[DatasetsSummary].
+    const { data } = await api.get<DatasetsSummary[]>(ApiRoute.Datasets);
+    // data уже массив DatasetsSummary. Его и вернём в Redux.
     return data;
 });
 
 /**
- * Добавить новый датасет (PUT /datasets)
- * Сервер возвращает объект: { "message": "Dataset added successfully" }
- * Если вы хотите использовать это сообщение на фронте, можно вернуть объект с этим сообщением
- * вместо `void`.
+ * Добавить новый датасет (PUT /datasets).
+ * Возвращается DatasetsSummary (по Swagger response_model=DatasetsSummary).
  */
 export const addDataset = createAsyncThunk<
-    void,
-    { name: string; description: string },
+    DatasetsSummary, // результат, который сохранится в store (при желании можно `void`, если не нужно)
+    { name: string; description: string }, // входные параметры
     { extra: AxiosInstance }
 >('addDataset', async ({ name, description }, { extra: api }) => {
-    await api.put(ApiRoute.Datasets, { name, description });
+    // server expects { name: string; description: string }
+    const { data } = await api.put<DatasetsSummary>(ApiRoute.Datasets, {
+        name,
+        description,
+    });
+    return data;
 });
 
 /**
- * Обновить описание датасета (POST /datasets)
- * Сервер возвращает объект: { "message": "Dataset description updated successfully" }
+ * Обновить описание датасета (POST /datasets).
+ * Возвращает { "message": "Dataset description updated successfully" }
  */
+interface EditDatasetDescriptionResponse {
+    message: string;
+}
+
 export const updateDatasetDescription = createAsyncThunk<
-    void,
-    { id: string; name: string; description: string },
+    EditDatasetDescriptionResponse,
+    { id: number; name: string; description: string }, // здесь id - number (по Swagger)
     { extra: AxiosInstance }
 >(
     'updateDatasetDescription',
     async ({ id, name, description }, { extra: api }) => {
-        await api.post(ApiRoute.Datasets, { id, name, description });
+        const { data } = await api.post<EditDatasetDescriptionResponse>(
+            ApiRoute.Datasets,
+            { id, name, description }
+        );
+        return data;
     }
 );
 
+/**
+ * Очистить ошибку по таймеру
+ */
 export const clearErrorAction = createAsyncThunk<
     void,
     undefined,

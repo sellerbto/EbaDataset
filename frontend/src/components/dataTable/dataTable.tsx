@@ -12,11 +12,18 @@ import { InputText } from 'primereact/inputtext';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
-import { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { ToastContext } from '../../context/toastContext';
-import { ProductService } from '../../services/productService';
-import './dataTable.scss';
 
+// Импортируем хук useAppDispatch/useAppSelector (или ваши аналоги) и нужные экшены
+import { useAppDispatch, useAppSelector } from '../../store';
+import {
+    addDataset,
+    fetchDatasets,
+    updateDatasetDescription,
+} from '../../store/api-actions';
+
+// Интерфейс Resource для фронта (ваш тип)
 export interface Resource {
     id: string;
     name: string;
@@ -33,24 +40,22 @@ export interface Resource {
 
 const MainDataTable: React.FC = () => {
     const toastContext = useContext(ToastContext);
+    const dispatch = useAppDispatch();
 
-    const [data, setData] = useState<Resource[]>([]);
-    const [loading, setLoading] = useState<boolean>(false);
+    // Достаём данные и флаг загрузки из Redux store
+    const data = useAppSelector(state => state.currentDatasets);
+    const loading = useAppSelector(state => state.datasetsLoading);
 
+    // Локальные стейты для окна "Добавить ресурс"
     const [dialogVisible, setDialogVisible] = useState(false);
-
     const [tempName, setTempName] = useState('');
     const [tempDescription, setTempDescription] = useState('');
 
+    // При первом рендере запрашиваем список датасетов с бэкенда
     useEffect(() => {
-        setLoading(true);
-        ProductService.getServers()
-            .then((fetchedData: Resource[]) => {
-                setData(fetchedData);
-                setLoading(false);
-            })
+        dispatch(fetchDatasets())
+            .unwrap()
             .catch(() => {
-                setLoading(false);
                 toastContext?.show({
                     severity: 'error',
                     summary: 'Ошибка',
@@ -58,7 +63,7 @@ const MainDataTable: React.FC = () => {
                     life: 3000,
                 });
             });
-    }, [toastContext]);
+    }, [dispatch, toastContext]);
 
     const openAddResourceDialog = () => {
         setTempName('');
@@ -70,68 +75,50 @@ const MainDataTable: React.FC = () => {
         setDialogVisible(false);
     };
 
+    /**
+     * Создать новый "датасет" (по сути - ресурс)
+     * На бэкенде (PUT /dashboard/datasets) требуется { name, description }.
+     * После успеха, желательно перечитать список датасетов (fetchDatasets).
+     */
     const handleAddResource = async () => {
         if (!tempName.trim()) {
             alert('Поле "Название" обязательно для заполнения');
             return;
         }
 
-        const newResource: Omit<Resource, 'id'> = {
-            name: tempName,
-            description: tempDescription,
-            access_rights: 'unknown',
-            size: 0,
-            host: '',
-            frequency_of_use_in_month: 0,
-            created_at_server: '',
-            created_at_host: '',
-            last_read: '',
-            last_modified: '',
-        };
-
-        ProductService.createServer(newResource)
-            .then((addedResource: Resource) => {
-                setData(prevData => [...prevData, addedResource]);
+        dispatch(addDataset({ name: tempName, description: tempDescription }))
+            .unwrap()
+            .then(() => {
                 closeAddResourceDialog();
                 toastContext?.show({
                     severity: 'success',
                     summary: 'Успех',
-                    detail: 'Ресурс успешно добавлен.',
+                    detail: 'Датасет успешно добавлен.',
                     life: 3000,
                 });
+                // Обновить список после добавления
+                dispatch(fetchDatasets());
             })
             .catch(() => {
                 toastContext?.show({
                     severity: 'error',
                     summary: 'Ошибка',
-                    detail: 'Не удалось добавить ресурс.',
+                    detail: 'Не удалось добавить датасет.',
                     life: 3000,
                 });
             });
     };
 
+    /**
+     * Пример обработки изменения ячейки (редактирование name/description).
+     * Для остальных полей на бэкенде нет эндпоинта, так что либо отключите их редактирование,
+     * либо сделайте отдельный запрос (например, PATCH) на ваш бекенд.
+     */
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
 
-        if (
-            (field === 'size' || field === 'frequency_of_use_in_month') &&
-            (typeof newValue !== 'number' || newValue < 0)
-        ) {
-            event.preventDefault();
-            toastContext?.show({
-                severity: 'warn',
-                summary: 'Предупреждение',
-                detail:
-                    field === 'size'
-                        ? 'Размер должен быть положительным числом.'
-                        : 'Частота использования должна быть положительным числом.',
-                life: 3000,
-            });
-            return;
-        } else if (
-            typeof newValue === 'string' &&
-            newValue.trim().length === 0
-        ) {
+        // Валидируем на пустые строки
+        if (typeof newValue === 'string' && newValue.trim().length === 0) {
             event.preventDefault();
             toastContext?.show({
                 severity: 'warn',
@@ -142,70 +129,78 @@ const MainDataTable: React.FC = () => {
             return;
         }
 
-        const updatedRow: Resource = { ...rowData, [field]: newValue };
+        // Если пытаемся редактировать "size" или "host",
+        // но на бэкенде нет метода их обновления, это просто не сработает.
+        // Покажем предупреждение:
+        if (field !== 'name' && field !== 'description') {
+            event.preventDefault();
+            toastContext?.show({
+                severity: 'warn',
+                summary: 'Предупреждение',
+                detail: 'Редактирование этого поля пока не поддерживается.',
+                life: 3000,
+            });
+            return;
+        }
 
-        ProductService.updateServer(updatedRow)
-            .then((updatedServer: Resource) => {
-                setData(prevData =>
-                    prevData.map(item =>
-                        item.id === updatedServer.id ? updatedServer : item
-                    )
-                );
+        // Для name / description вызываем updateDatasetDescription
+        const updatedRow = { ...rowData, [field]: newValue };
+
+        dispatch(
+            updateDatasetDescription({
+                // id на бэкенде — число, а у нас string. Нужно конвертировать:
+                id: updatedRow.id,
+                name: updatedRow.name,
+                description: updatedRow.description,
+            })
+        )
+            .unwrap()
+            .then(() => {
                 toastContext?.show({
                     severity: 'success',
                     summary: 'Успех',
-                    detail: 'Ресурс успешно обновлен.',
+                    detail: 'Датасет успешно обновлён (описание).',
                     life: 3000,
                 });
+                // После успеха перезагрузить список:
+                dispatch(fetchDatasets());
             })
             .catch(() => {
                 toastContext?.show({
                     severity: 'error',
                     summary: 'Ошибка',
-                    detail: 'Не удалось обновить ресурс.',
+                    detail: 'Не удалось обновить датасет.',
                     life: 3000,
                 });
             });
     };
 
+    /**
+     * Если вам нужен функционал удаления (и есть подходящий эндпоинт на бэкенде),
+     * вы можете добавить экшен (например, deleteDataset) и здесь его использовать.
+     * Для демонстрации используем confirmDialog — но пока оставим как заглушку.
+     */
     const confirmDelete = (rowData: Resource) => {
         confirmDialog({
             message: `Вы уверены, что хотите удалить ресурс "${rowData.name}"?`,
             header: 'Подтверждение удаления',
             icon: 'pi pi-exclamation-triangle',
             accept: () => {
-                ProductService.deleteServer(rowData.id)
-                    .then(() => {
-                        setData(prevData =>
-                            prevData.filter(item => item.id !== rowData.id)
-                        );
-                        toastContext?.show({
-                            severity: 'success',
-                            summary: 'Успех',
-                            detail: 'Ресурс успешно удален.',
-                            life: 3000,
-                        });
-                    })
-                    .catch(() => {
-                        toastContext?.show({
-                            severity: 'error',
-                            summary: 'Ошибка',
-                            detail: 'Не удалось удалить ресурс.',
-                            life: 3000,
-                        });
-                    });
-            },
-            reject: () => {
+                // Если появится эндпоинт, делайте dispatch(deleteDataset(rowData.id)) и refetch
                 toastContext?.show({
                     severity: 'info',
-                    summary: 'Отменено',
-                    detail: 'Удаление ресурса отменено.',
+                    summary: 'Уведомление',
+                    detail: 'Функционал удаления не реализован.',
                     life: 3000,
                 });
             },
         });
     };
 
+    /**
+     * Редакторы: textEditor и numberEditor.
+     * Но если реального обновления на бэкенде нет — редактирование будет чисто «визуальным».
+     */
     const textEditor = (options: ColumnEditorOptions) => (
         <InputText
             type='text'
@@ -240,6 +235,10 @@ const MainDataTable: React.FC = () => {
         }
     };
 
+    /**
+     * Простой форматтер дат (string -> Local String),
+     * чтобы не отображать "undefined" или "null".
+     */
     const formatDate = (dateString: string) => {
         if (!dateString) return '';
         return new Date(dateString).toLocaleString();
@@ -386,7 +385,7 @@ const MainDataTable: React.FC = () => {
                 />
             </div>
             <Dialog
-                header='Добавить новый ресурс'
+                header='Добавить новый датасет'
                 visible={dialogVisible}
                 onHide={closeAddResourceDialog}
                 style={{ width: '50vw' }}

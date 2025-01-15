@@ -1,105 +1,164 @@
 import { Resource } from '../types/resource';
 
-const mockData: Resource[] = [
-    {
-        id: '1',
-        name: 'serverA',
-        description: 'Описание для serverA',
-        access_rights: 'read',
-        size: 1532,
-        host: '192.168.0.10',
-        created_at_server: new Date(2024, 10, 12, 10, 30, 15).toISOString(),
-        created_at_host: new Date(2024, 10, 12, 10, 35, 5).toISOString(),
-        last_read: new Date(2024, 11, 1, 12, 45, 30).toISOString(),
-        last_modified: new Date(2024, 11, 1, 13, 15, 10).toISOString(),
-        frequency_of_use_in_month: 5,
-    },
-    {
-        id: '2',
-        name: 'dataNodeX',
-        description: 'Описание для dataNodeX',
-        access_rights: 'admin',
-        size: 9845,
-        host: '10.0.1.25',
-        created_at_server: new Date(2023, 5, 22, 9, 0, 0).toISOString(),
-        created_at_host: new Date(2023, 5, 22, 9, 5, 0).toISOString(),
-        last_read: new Date(2024, 10, 25, 18, 20, 45).toISOString(),
-        last_modified: new Date(2024, 10, 25, 18, 30, 0).toISOString(),
-        frequency_of_use_in_month: 12,
-    },
-];
+// Определяем интерфейсы, соответствующие данным из бэкенда (Swagger)
+interface DatasetInfo {
+    id: number; // бэкенд возвращает число, а у нас во фронте в Resource — id: string
+    file_path: string;
+    size: number;
+    host: string;
+    created_at_server: string | null;
+    created_at_host: string | null;
+    last_read: string | null;
+    last_modified: string | null;
+    frequency_of_use_in_month: number | null;
+}
+
+interface DatasetsSummary {
+    dataset_general_info_id: number;
+    name: string;
+    description: string;
+    datasets_infos: DatasetInfo[];
+}
 
 export const ProductService = {
     /**
-     * Получение всех серверов (ресурсов)
-     * @returns Promise, возвращающий массив Resource
+     * Получаем все датасеты (бэкенд: GET /dashboard/datasets),
+     * преобразуем их в формат Resource[], чтобы потом отобразить в вашей таблице.
      */
     async getServers(): Promise<Resource[]> {
-        return new Promise(resolve => {
-            setTimeout(() => {
-                // Возвращаем копию массива, чтобы исключить мутации извне
-                resolve([...mockData]);
-            }, 2000);
+        const response = await fetch('/dashboard/datasets', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
         });
+
+        if (!response.ok) {
+            throw new Error('Не удалось загрузить ресурсы с сервера');
+        }
+
+        // Бэкенд возвращает DatasetsSummary[]
+        const datasets: DatasetsSummary[] = await response.json();
+
+        // Преобразуем DatasetsSummary[] -> Resource[]
+        const resources: Resource[] = [];
+
+        for (const ds of datasets) {
+            // ds.datasets_infos — массив DatasetInfo
+            for (const info of ds.datasets_infos) {
+                // Собираем объект Resource
+                const resource: Resource = {
+                    id: String(info.id), // number -> string
+                    // В вашем фронтовом интерфейсе 'name' и 'description' находятся в Resource,
+                    // а на бэкенде эти поля в DatasetsSummary
+                    name: ds.name,
+                    description: ds.description,
+                    // Так как в Swagger нет поля "access_rights", задаём дефолт:
+                    access_rights: 'unknown',
+                    // Остальные поля берем из DatasetInfo
+                    size: info.size ?? 0,
+                    host: info.host ?? '',
+                    created_at_server: info.created_at_server ?? '',
+                    created_at_host: info.created_at_host ?? '',
+                    last_read: info.last_read ?? '',
+                    last_modified: info.last_modified ?? '',
+                    frequency_of_use_in_month:
+                        info.frequency_of_use_in_month ?? 0,
+                };
+                resources.push(resource);
+            }
+        }
+
+        return resources;
     },
 
     /**
-     * Обновление существующего сервера (ресурса)
-     * @param updatedServer - Обновленные данные ресурса
-     * @returns Promise, возвращающий обновленный Resource
-     */
-    async updateServer(updatedServer: Resource): Promise<Resource> {
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                const index = mockData.findIndex(
-                    server => server.id === updatedServer.id
-                );
-                if (index !== -1) {
-                    // Обновляем соответствующий элемент
-                    mockData[index] = { ...updatedServer };
-                    resolve({ ...mockData[index] });
-                } else {
-                    reject(new Error('Ресурс не найден'));
-                }
-            }, 1000);
-        });
-    },
-
-    /**
-     * Удаление сервера (ресурса) по ID
-     * @param id - Идентификатор ресурса
-     * @returns Promise<void>
-     */
-    async deleteServer(id: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                const index = mockData.findIndex(server => server.id === id);
-                if (index !== -1) {
-                    // Удаляем элемент из массива
-                    mockData.splice(index, 1);
-                    resolve();
-                } else {
-                    reject(new Error('Ресурс не найден'));
-                }
-            }, 1000);
-        });
-    },
-
-    /**
-     * Создание нового сервера (ресурса)
-     * @param newServer - Данные нового ресурса (без ID)
-     * @returns Promise, возвращающий созданный Resource
+     * Пример: Создание нового "датасета" (PUT /dashboard/datasets)
+     * (Вы сами решаете, как будете «сопоставлять» эти данные с Resource или другими полями.)
      */
     async createServer(newServer: Omit<Resource, 'id'>): Promise<Resource> {
-        return new Promise(resolve => {
-            setTimeout(() => {
-                // Генерируем ID по простой логике (можно заменить на nanoid, uuid и т.д.)
-                const id = (mockData.length + 1).toString();
-                const createdServer: Resource = { id, ...newServer };
-                mockData.push(createdServer);
-                // Возвращаем копию, чтобы исключить мутации
-                resolve({ ...createdServer });
-            }, 1000);
+        // newServer содержит только name и description (по вашей логике).
+        // Бэкенд ожидает { "name": string, "description": string }
+        const body = {
+            name: newServer.name,
+            description: newServer.description,
+        };
+
+        const response = await fetch('/dashboard/datasets', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
         });
+
+        if (!response.ok) {
+            throw new Error('Не удалось создать ресурс на сервере');
+        }
+
+        // Согласно Swagger, ответ `200` даёт пустой объект `{}` (или пустой),
+        // поэтому нам нужно возвращать что-то для Resource.
+        // Пока что можно вернуть «заглушку» или повторно вызвать getServers.
+        // Для простоты вернем объект с полями, которые были отправлены:
+        const createdResource: Resource = {
+            // Придется сгенерировать некий id,
+            id: 'temp-id-' + Date.now(),
+            name: newServer.name,
+            description: newServer.description,
+            access_rights: 'unknown',
+            size: 0,
+            host: '',
+            created_at_server: '',
+            created_at_host: '',
+            last_read: '',
+            last_modified: '',
+            frequency_of_use_in_month: 0,
+        };
+
+        return createdResource;
+    },
+
+    /**
+     * Пример: Обновление описания датасета (POST /dashboard/datasets)
+     */
+    async updateServer(updatedServer: Resource): Promise<Resource> {
+        // По Swagger, сервер ожидает { "id": number, "name": string, "description": string }
+        // У вас updatedServer.id — строка, нужно преобразовать в число.
+        const body = {
+            id: Number(updatedServer.id),
+            name: updatedServer.name,
+            description: updatedServer.description,
+        };
+
+        const response = await fetch('/dashboard/datasets', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+            throw new Error('Не удалось обновить ресурс');
+        }
+
+        // Сервер возвращает { "message": "Dataset description updated successfully" }
+        // Нам нужно самим «придумать», что возвращать в коде. Пусть будет тот же updatedServer.
+        return updatedServer;
+    },
+
+    /**
+     * Пример: Удаление датасета (у вас нет явного эндпоинта DELETE /dashboard/datasets/{id}?)
+     * Возможно, нужно другое решение. Или вообще нет логики удаления на бэкенде?
+     */
+    async deleteServer(id: string): Promise<void> {
+        // Если у вас нет DELETE /dashboard/datasets/{id}, придётся написать свой эндпоинт.
+        // Или как-то иначе обрабатывать. Здесь - просто пример запроса:
+        const response = await fetch(`/dashboard/datasets/${id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) {
+            throw new Error('Не удалось удалить ресурс');
+        }
     },
 };
