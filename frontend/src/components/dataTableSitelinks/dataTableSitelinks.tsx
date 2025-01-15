@@ -24,8 +24,10 @@ import './dataTableSitelinks.scss';
 const LinkDataTable = () => {
     const toastContext = useContext(ToastContext);
     const dispatch = useAppDispatch();
+
     const links = useAppSelector(state => state.currentLinks);
     const loading = useAppSelector(state => state.linksLoading);
+
     const [dialogVisible, setDialogVisible] = useState(false);
     const [newLink, setNewLink] = useState<LinkData>({
         name: '',
@@ -145,9 +147,37 @@ const LinkDataTable = () => {
         });
     };
 
+    /**
+     * Проверка, что URL начинается c "https://"
+     */
+    const isValidHttpsUrl = (url: string) => {
+        return url.startsWith('https://');
+    };
+
     const handleAddLink = () => {
-        if (!newLink.name || !newLink.url || !newLink.description) {
-            alert('Все поля должны быть заполнены');
+        // Проверяем, что поля не пустые
+        if (
+            !newLink.name.trim() ||
+            !newLink.url.trim() ||
+            !newLink.description.trim()
+        ) {
+            toastContext?.show({
+                severity: 'warn',
+                summary: 'Ошибка',
+                detail: 'Все поля должны быть заполнены.',
+                life: 3000,
+            });
+            return;
+        }
+
+        // Проверяем, что url начинается с "https://"
+        if (!isValidHttpsUrl(newLink.url)) {
+            toastContext?.show({
+                severity: 'warn',
+                summary: 'Ошибка URL',
+                detail: 'URL должен начинаться с "https://".',
+                life: 3000,
+            });
             return;
         }
 
