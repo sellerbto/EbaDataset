@@ -149,7 +149,7 @@ const MainDataTable: React.FC = () => {
         dispatch(
             updateDatasetDescription({
                 // id на бэкенде — число, а у нас string. Нужно конвертировать:
-                id: updatedRow.id,
+                id: updatedRow.dataset_general_info_id,
                 name: updatedRow.name,
                 description: updatedRow.description,
             })

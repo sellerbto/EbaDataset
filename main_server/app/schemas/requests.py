@@ -34,15 +34,18 @@ class DaemonClientRequest(BaseRequest):
     last_modification_date: datetime
     size: int
 
+
 class LinkDescriptionUpdateRequest(BaseModel):
     url: HttpUrl
     name: Optional[str] = None
     description: Optional[str] = None
 
+
 class DatasetInfoUpdateRequest(BaseRequest):
     id: int
     name: str
-    description: Optional[str] = None
+    description: str
+
 
 class DatasetInfoCreateRequest(BaseRequest):
     name: str

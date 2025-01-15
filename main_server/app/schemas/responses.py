@@ -27,6 +27,10 @@ class UserResponse(BaseResponse):
     email: EmailStr
 
 
+class DatasetInfoUpdateResponse(BaseResponse):
+    message: str
+
+
 class LinkResponse(BaseResponse):
     url: HttpUrl
     name: str

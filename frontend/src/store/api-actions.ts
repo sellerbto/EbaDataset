@@ -106,9 +106,13 @@ export const updateDatasetDescription = createAsyncThunk<
 >(
     'updateDatasetDescription',
     async ({ id, name, description }, { extra: api }) => {
-        const { data } = await api.post<EditDatasetDescriptionResponse>(
+        const { data } = await api.post(
             ApiRoute.Datasets,
-            { id, name, description }
+            {
+                id: id,
+                name: name,
+                description: description,
+            }
         );
         return data;
     }
