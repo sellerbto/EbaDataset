@@ -4,6 +4,7 @@ const mockData: Resource[] = [
     {
         id: '1',
         name: 'serverA',
+        description: 'Описание для serverA',
         access_rights: 'read',
         size: 1532,
         host: '192.168.0.10',
@@ -16,6 +17,7 @@ const mockData: Resource[] = [
     {
         id: '2',
         name: 'dataNodeX',
+        description: 'Описание для dataNodeX',
         access_rights: 'admin',
         size: 9845,
         host: '10.0.1.25',
@@ -35,6 +37,7 @@ export const ProductService = {
     async getServers(): Promise<Resource[]> {
         return new Promise(resolve => {
             setTimeout(() => {
+                // Возвращаем копию массива, чтобы исключить мутации извне
                 resolve([...mockData]);
             }, 2000);
         });
@@ -52,6 +55,7 @@ export const ProductService = {
                     server => server.id === updatedServer.id
                 );
                 if (index !== -1) {
+                    // Обновляем соответствующий элемент
                     mockData[index] = { ...updatedServer };
                     resolve({ ...mockData[index] });
                 } else {
@@ -71,6 +75,7 @@ export const ProductService = {
             setTimeout(() => {
                 const index = mockData.findIndex(server => server.id === id);
                 if (index !== -1) {
+                    // Удаляем элемент из массива
                     mockData.splice(index, 1);
                     resolve();
                 } else {
@@ -82,15 +87,17 @@ export const ProductService = {
 
     /**
      * Создание нового сервера (ресурса)
-     * @param newServer - Данные нового ресурса без ID
+     * @param newServer - Данные нового ресурса (без ID)
      * @returns Promise, возвращающий созданный Resource
      */
     async createServer(newServer: Omit<Resource, 'id'>): Promise<Resource> {
         return new Promise(resolve => {
             setTimeout(() => {
+                // Генерируем ID по простой логике (можно заменить на nanoid, uuid и т.д.)
                 const id = (mockData.length + 1).toString();
                 const createdServer: Resource = { id, ...newServer };
                 mockData.push(createdServer);
+                // Возвращаем копию, чтобы исключить мутации
                 resolve({ ...createdServer });
             }, 1000);
         });

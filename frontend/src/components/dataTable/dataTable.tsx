@@ -1,11 +1,9 @@
-import { nanoid } from 'nanoid'; // импортируем nanoid
 import 'primeicons/primeicons.css';
 import { Button } from 'primereact/button';
 import { Column, ColumnEditorOptions, ColumnEvent } from 'primereact/column';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
-import { Dropdown } from 'primereact/dropdown';
 import {
     InputNumber,
     InputNumberValueChangeEvent,
@@ -17,95 +15,32 @@ import 'primereact/resources/themes/saga-blue/theme.css';
 import { useContext, useEffect, useState } from 'react';
 import { ToastContext } from '../../context/toastContext';
 import { ProductService } from '../../services/productService';
-import { Resource } from '../../types/resource';
 import './dataTable.scss';
+
+export interface Resource {
+    id: string;
+    name: string;
+    description: string;
+    access_rights: 'read' | 'write' | 'admin' | 'unknown';
+    size: number;
+    host: string;
+    frequency_of_use_in_month: number;
+    created_at_server: string;
+    created_at_host: string;
+    last_read: string;
+    last_modified: string;
+}
 
 const MainDataTable: React.FC = () => {
     const toastContext = useContext(ToastContext);
 
     const [data, setData] = useState<Resource[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
+
     const [dialogVisible, setDialogVisible] = useState(false);
-    const [newResource, setNewResource] = useState<Resource>({
-        id: nanoid(),
-        name: '',
-        access_rights: 'unknown',
-        size: 0,
-        host: '',
-        frequency_of_use_in_month: 0,
-        created_at_server: '',
-        created_at_host: '',
-        last_read: '',
-        last_modified: '',
-    });
 
-    const accessRightsOptions = [
-        { label: 'Read', value: 'read' },
-        { label: 'Write', value: 'write' },
-        { label: 'Admin', value: 'admin' },
-        { label: 'Unknown', value: 'unknown' },
-    ];
-
-    const openAddResourceDialog = () => {
-        setDialogVisible(true);
-    };
-
-    const closeAddResourceDialog = () => {
-        setDialogVisible(false);
-        setNewResource({
-            id: '',
-            name: '',
-            access_rights: 'unknown',
-            size: 0,
-            host: '',
-            frequency_of_use_in_month: 0,
-            created_at_server: '',
-            created_at_host: '',
-            last_read: '',
-            last_modified: '',
-        });
-    };
-
-    const handleAddResource = async () => {
-        if (
-            !newResource.name ||
-            !newResource.access_rights ||
-            !newResource.host
-        ) {
-            alert('Все поля должны быть заполнены');
-            return;
-        }
-
-        if (
-            newResource.size <= 0 ||
-            newResource.frequency_of_use_in_month <= 0
-        ) {
-            alert(
-                'Размер и частота использования должны быть положительными числами.'
-            );
-            return;
-        }
-
-        ProductService.createServer(newResource)
-            .then(addedResource => {
-                setData(prevData => [...prevData, addedResource]);
-                closeAddResourceDialog();
-                toastContext?.show({
-                    severity: 'success',
-                    summary: 'Успех',
-                    detail: 'Ресурс успешно добавлен.',
-                    life: 3000,
-                });
-            })
-            .catch(() => {
-                toastContext?.show({
-                    severity: 'error',
-                    summary: 'Ошибка',
-                    detail: 'Не удалось добавить ресурс.',
-                    life: 3000,
-                });
-            });
-    };
+    const [tempName, setTempName] = useState('');
+    const [tempDescription, setTempDescription] = useState('');
 
     useEffect(() => {
         setLoading(true);
@@ -124,6 +59,56 @@ const MainDataTable: React.FC = () => {
                 });
             });
     }, [toastContext]);
+
+    const openAddResourceDialog = () => {
+        setTempName('');
+        setTempDescription('');
+        setDialogVisible(true);
+    };
+
+    const closeAddResourceDialog = () => {
+        setDialogVisible(false);
+    };
+
+    const handleAddResource = async () => {
+        if (!tempName.trim()) {
+            alert('Поле "Название" обязательно для заполнения');
+            return;
+        }
+
+        const newResource: Omit<Resource, 'id'> = {
+            name: tempName,
+            description: tempDescription,
+            access_rights: 'unknown',
+            size: 0,
+            host: '',
+            frequency_of_use_in_month: 0,
+            created_at_server: '',
+            created_at_host: '',
+            last_read: '',
+            last_modified: '',
+        };
+
+        ProductService.createServer(newResource)
+            .then((addedResource: Resource) => {
+                setData(prevData => [...prevData, addedResource]);
+                closeAddResourceDialog();
+                toastContext?.show({
+                    severity: 'success',
+                    summary: 'Успех',
+                    detail: 'Ресурс успешно добавлен.',
+                    life: 3000,
+                });
+            })
+            .catch(() => {
+                toastContext?.show({
+                    severity: 'error',
+                    summary: 'Ошибка',
+                    detail: 'Не удалось добавить ресурс.',
+                    life: 3000,
+                });
+            });
+    };
 
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
@@ -250,23 +235,13 @@ const MainDataTable: React.FC = () => {
             options.field === 'frequency_of_use_in_month'
         ) {
             return numberEditor(options);
-        } else if (options.field === 'access_rights') {
-            return (
-                <InputText
-                    type='text'
-                    value={options.value}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        options.editorCallback?.(e.target.value)
-                    }
-                    onKeyDown={e => e.stopPropagation()}
-                />
-            );
         } else {
             return textEditor(options);
         }
     };
 
     const formatDate = (dateString: string) => {
+        if (!dateString) return '';
         return new Date(dateString).toLocaleString();
     };
 
@@ -340,6 +315,15 @@ const MainDataTable: React.FC = () => {
                     <Column
                         field='frequency_of_use_in_month'
                         header='Частота использования (мес)'
+                        sortable
+                        headerClassName='centered-header'
+                        style={{ width: '10%' }}
+                        editor={options => cellEditor(options)}
+                        onCellEditComplete={onCellEditComplete}
+                    />
+                    <Column
+                        field='description'
+                        header='Описание'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -428,69 +412,18 @@ const MainDataTable: React.FC = () => {
                         <label htmlFor='name'>Название</label>
                         <InputText
                             id='name'
-                            value={newResource.name}
-                            onChange={e =>
-                                setNewResource({
-                                    ...newResource,
-                                    name: e.target.value,
-                                })
-                            }
+                            value={tempName}
+                            onChange={e => setTempName(e.target.value)}
                             autoFocus
                         />
                     </div>
+
                     <div className='p-field'>
-                        <label htmlFor='access_rights'>Права доступа</label>
-                        <Dropdown
-                            id='access_rights'
-                            value={newResource.access_rights}
-                            options={accessRightsOptions}
-                            onChange={e =>
-                                setNewResource({
-                                    ...newResource,
-                                    access_rights: e.value,
-                                })
-                            }
-                        />
-                    </div>
-                    <div className='p-field'>
-                        <label htmlFor='host'>Хост</label>
+                        <label htmlFor='description'>Описание</label>
                         <InputText
-                            id='host'
-                            value={newResource.host}
-                            onChange={e =>
-                                setNewResource({
-                                    ...newResource,
-                                    host: e.target.value,
-                                })
-                            }
-                        />
-                    </div>
-                    <div className='p-field'>
-                        <label htmlFor='size'>Размер</label>
-                        <InputNumber
-                            id='size'
-                            value={newResource.size}
-                            onValueChange={e =>
-                                setNewResource({
-                                    ...newResource,
-                                    size: e.value || 0,
-                                })
-                            }
-                        />
-                    </div>
-                    <div className='p-field'>
-                        <label htmlFor='frequency_of_use_in_month'>
-                            Частота использования (мес)
-                        </label>
-                        <InputNumber
-                            id='frequency_of_use_in_month'
-                            value={newResource.frequency_of_use_in_month}
-                            onValueChange={e =>
-                                setNewResource({
-                                    ...newResource,
-                                    frequency_of_use_in_month: e.value || 0,
-                                })
-                            }
+                            id='description'
+                            value={tempDescription}
+                            onChange={e => setTempDescription(e.target.value)}
                         />
                     </div>
                 </div>
