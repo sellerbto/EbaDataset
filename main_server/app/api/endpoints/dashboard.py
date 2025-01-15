@@ -14,21 +14,20 @@ from app.schemas.responses import LinkResponse, DatasetsSummary
 
 router = APIRouter()
 
-
 @router.get("/datasets", response_model=List[DatasetsSummary], description="Get list of dataset infos")
 async def get_datasets_info(
     session: AsyncSession = Depends(deps.get_session)
 ) -> List[DatasetsSummary]:
     return await get_dataset_summaries(session)
 
-@router.put("/datasets", response_model=dict, description="Add dataset info")
+@router.put("/datasets", response_model=DatasetsSummary, description="Add dataset info")
 async def add_datasets_info(
     request: DatasetInfoCreateRequest,
     session: AsyncSession = Depends(deps.get_session)
-) -> dict:
+) -> DatasetsSummary:
     repository = DatasetGeneralInfoRepository(session)
-    await repository.add(request.name, request.description)
-    return {"message": "Dataset added successfully"}
+    new_dataset_summary = await repository.add(request.name, request.description)
+    return new_dataset_summary
 
 @router.post("/datasets", response_model=dict, description="Edits dataset description")
 async def edit_dataset_description(
