@@ -42,34 +42,40 @@ export const deleteLink = createAsyncThunk<
     return data;
 });
 
+/**
+ * Получить список всех датасетов (GET /datasets)
+ */
 export const fetchDatasets = createAsyncThunk<
     Resource[],
     undefined,
-    {
-        extra: AxiosInstance;
-    }
+    { extra: AxiosInstance }
 >('fetchDatasets', async (_, { extra: api }) => {
     const { data } = await api.get<Resource[]>(ApiRoute.Datasets);
     return data;
 });
 
-//попытался написать
+/**
+ * Добавить новый датасет (PUT /datasets)
+ * Сервер возвращает объект: { "message": "Dataset added successfully" }
+ * Если вы хотите использовать это сообщение на фронте, можно вернуть объект с этим сообщением
+ * вместо `void`.
+ */
 export const addDataset = createAsyncThunk<
     void,
     { name: string; description: string },
-    {
-        extra: AxiosInstance;
-    }
+    { extra: AxiosInstance }
 >('addDataset', async ({ name, description }, { extra: api }) => {
-    await api.post(ApiRoute.Datasets, { name, description });
+    await api.put(ApiRoute.Datasets, { name, description });
 });
 
+/**
+ * Обновить описание датасета (POST /datasets)
+ * Сервер возвращает объект: { "message": "Dataset description updated successfully" }
+ */
 export const updateDatasetDescription = createAsyncThunk<
     void,
     { id: string; name: string; description: string },
-    {
-        extra: AxiosInstance;
-    }
+    { extra: AxiosInstance }
 >(
     'updateDatasetDescription',
     async ({ id, name, description }, { extra: api }) => {
