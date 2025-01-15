@@ -1,5 +1,5 @@
 import React from 'react';
-import './HomeInfo.scss';
+import './homeInfo.scss';
 
 const HomeInfo: React.FC = () => {
     return (

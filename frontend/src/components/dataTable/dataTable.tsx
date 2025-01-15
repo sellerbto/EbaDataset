@@ -1,9 +1,9 @@
-// src/components/dataTable/MainDataTable.tsx
 import 'primeicons/primeicons.css';
 import { Button } from 'primereact/button';
 import { Column, ColumnEditorOptions, ColumnEvent } from 'primereact/column';
 import { confirmDialog } from 'primereact/confirmdialog';
 import { DataTable } from 'primereact/datatable';
+import { Dialog } from 'primereact/dialog';
 import {
     InputNumber,
     InputNumberValueChangeEvent,
@@ -12,25 +12,50 @@ import { InputText } from 'primereact/inputtext';
 import { ProgressSpinner } from 'primereact/progressspinner';
 import 'primereact/resources/primereact.min.css';
 import 'primereact/resources/themes/saga-blue/theme.css';
-import { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { ToastContext } from '../../context/toastContext';
-import { ProductService } from '../../services/productService';
-import { Resource } from '../../types/resource';
-import './dataTable.scss';
+
+// Импортируем хук useAppDispatch/useAppSelector (или ваши аналоги) и нужные экшены
+import { useAppDispatch, useAppSelector } from '../../store';
+import {
+    addDataset,
+    fetchDatasets,
+    updateDatasetDescription,
+} from '../../store/api-actions';
+
+// Интерфейс Resource для фронта (ваш тип)
+export interface Resource {
+    id: string;
+    name: string;
+    description: string;
+    access_rights: 'read' | 'write' | 'admin' | 'unknown';
+    size: number;
+    host: string;
+    frequency_of_use_in_month: number;
+    created_at_server: string;
+    created_at_host: string;
+    last_read: string;
+    last_modified: string;
+}
 
 const MainDataTable: React.FC = () => {
-    const [data, setData] = useState<Resource[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
     const toastContext = useContext(ToastContext);
+    const dispatch = useAppDispatch();
 
+    // Достаём данные и флаг загрузки из Redux store
+    const data = useAppSelector(state => state.currentDatasets);
+    const loading = useAppSelector(state => state.datasetsLoading);
+
+    // Локальные стейты для окна "Добавить ресурс"
+    const [dialogVisible, setDialogVisible] = useState(false);
+    const [tempName, setTempName] = useState('');
+    const [tempDescription, setTempDescription] = useState('');
+
+    // При первом рендере запрашиваем список датасетов с бэкенда
     useEffect(() => {
-        ProductService.getServers()
-            .then((fetchedData: Resource[]) => {
-                setData(fetchedData);
-                setLoading(false);
-            })
+        dispatch(fetchDatasets())
+            .unwrap()
             .catch(() => {
-                setLoading(false);
                 toastContext?.show({
                     severity: 'error',
                     summary: 'Ошибка',
@@ -38,30 +63,62 @@ const MainDataTable: React.FC = () => {
                     life: 3000,
                 });
             });
-    }, [toastContext]);
+    }, [dispatch, toastContext]);
 
+    const openAddResourceDialog = () => {
+        setTempName('');
+        setTempDescription('');
+        setDialogVisible(true);
+    };
+
+    const closeAddResourceDialog = () => {
+        setDialogVisible(false);
+    };
+
+    /**
+     * Создать новый "датасет" (по сути - ресурс)
+     * На бэкенде (PUT /dashboard/datasets) требуется { name, description }.
+     * После успеха, желательно перечитать список датасетов (fetchDatasets).
+     */
+    const handleAddResource = async () => {
+        if (!tempName.trim()) {
+            alert('Поле "Название" обязательно для заполнения');
+            return;
+        }
+
+        dispatch(addDataset({ name: tempName, description: tempDescription }))
+            .unwrap()
+            .then(() => {
+                closeAddResourceDialog();
+                toastContext?.show({
+                    severity: 'success',
+                    summary: 'Успех',
+                    detail: 'Датасет успешно добавлен.',
+                    life: 3000,
+                });
+                // Обновить список после добавления
+                dispatch(fetchDatasets());
+            })
+            .catch(() => {
+                toastContext?.show({
+                    severity: 'error',
+                    summary: 'Ошибка',
+                    detail: 'Не удалось добавить датасет.',
+                    life: 3000,
+                });
+            });
+    };
+
+    /**
+     * Пример обработки изменения ячейки (редактирование name/description).
+     * Для остальных полей на бэкенде нет эндпоинта, так что либо отключите их редактирование,
+     * либо сделайте отдельный запрос (например, PATCH) на ваш бекенд.
+     */
     const onCellEditComplete = (e: ColumnEvent) => {
         const { rowData, newValue, field, originalEvent: event } = e;
 
-        // Валидация введённых данных
-        if (
-            (field === 'size' || field === 'frequency_of_use_in_month') &&
-            (typeof newValue !== 'number' || newValue < 0)
-        ) {
-            event.preventDefault();
-            toastContext?.show({
-                severity: 'warn',
-                summary: 'Предупреждение',
-                detail: `${
-                    field === 'size' ? 'Размер' : 'Частота использования'
-                } должно быть положительным числом.`,
-                life: 3000,
-            });
-            return;
-        } else if (
-            typeof newValue === 'string' &&
-            newValue.trim().length === 0
-        ) {
+        // Валидируем на пустые строки
+        if (typeof newValue === 'string' && newValue.trim().length === 0) {
             event.preventDefault();
             toastContext?.show({
                 severity: 'warn',
@@ -72,74 +129,78 @@ const MainDataTable: React.FC = () => {
             return;
         }
 
-        // Создание обновлённого объекта
-        const updatedRow: Resource = { ...rowData, [field]: newValue };
+        // Если пытаемся редактировать "size" или "host",
+        // но на бэкенде нет метода их обновления, это просто не сработает.
+        // Покажем предупреждение:
+        if (field !== 'name' && field !== 'description') {
+            event.preventDefault();
+            toastContext?.show({
+                severity: 'warn',
+                summary: 'Предупреждение',
+                detail: 'Редактирование этого поля пока не поддерживается.',
+                life: 3000,
+            });
+            return;
+        }
 
-        // Отправка обновления на сервер
-        ProductService.updateServer(updatedRow)
-            .then((updatedServer: Resource) => {
-                setData(prevData =>
-                    prevData.map(item =>
-                        item.id === updatedServer.id ? updatedServer : item
-                    )
-                );
+        // Для name / description вызываем updateDatasetDescription
+        const updatedRow = { ...rowData, [field]: newValue };
+
+        dispatch(
+            updateDatasetDescription({
+                // id на бэкенде — число, а у нас string. Нужно конвертировать:
+                id: updatedRow.id,
+                name: updatedRow.name,
+                description: updatedRow.description,
+            })
+        )
+            .unwrap()
+            .then(() => {
                 toastContext?.show({
                     severity: 'success',
                     summary: 'Успех',
-                    detail: 'Ресурс успешно обновлен.',
+                    detail: 'Датасет успешно обновлён (описание).',
                     life: 3000,
                 });
+                // После успеха перезагрузить список:
+                dispatch(fetchDatasets());
             })
             .catch(() => {
                 toastContext?.show({
                     severity: 'error',
                     summary: 'Ошибка',
-                    detail: 'Не удалось обновить ресурс.',
+                    detail: 'Не удалось обновить датасет.',
                     life: 3000,
                 });
-                setData(prevData => [...prevData]); // Можно восстановить предыдущее состояние, если требуется
             });
     };
 
+    /**
+     * Если вам нужен функционал удаления (и есть подходящий эндпоинт на бэкенде),
+     * вы можете добавить экшен (например, deleteDataset) и здесь его использовать.
+     * Для демонстрации используем confirmDialog — но пока оставим как заглушку.
+     */
     const confirmDelete = (rowData: Resource) => {
         confirmDialog({
             message: `Вы уверены, что хотите удалить ресурс "${rowData.name}"?`,
             header: 'Подтверждение удаления',
             icon: 'pi pi-exclamation-triangle',
             accept: () => {
-                ProductService.deleteServer(rowData.id)
-                    .then(() => {
-                        setData(prevData =>
-                            prevData.filter(item => item.id !== rowData.id)
-                        );
-                        toastContext?.show({
-                            severity: 'success',
-                            summary: 'Успех',
-                            detail: 'Ресурс успешно удален.',
-                            life: 3000,
-                        });
-                    })
-                    .catch(() => {
-                        toastContext?.show({
-                            severity: 'error',
-                            summary: 'Ошибка',
-                            detail: 'Не удалось удалить ресурс.',
-                            life: 3000,
-                        });
-                    });
-            },
-            reject: () => {
-                // Опционально: действия при отклонении
+                // Если появится эндпоинт, делайте dispatch(deleteDataset(rowData.id)) и refetch
                 toastContext?.show({
                     severity: 'info',
-                    summary: 'Отменено',
-                    detail: 'Удаление ресурса отменено.',
+                    summary: 'Уведомление',
+                    detail: 'Функционал удаления не реализован.',
                     life: 3000,
                 });
             },
         });
     };
 
+    /**
+     * Редакторы: textEditor и numberEditor.
+     * Но если реального обновления на бэкенде нет — редактирование будет чисто «визуальным».
+     */
     const textEditor = (options: ColumnEditorOptions) => (
         <InputText
             type='text'
@@ -174,7 +235,12 @@ const MainDataTable: React.FC = () => {
         }
     };
 
+    /**
+     * Простой форматтер дат (string -> Local String),
+     * чтобы не отображать "undefined" или "null".
+     */
     const formatDate = (dateString: string) => {
+        if (!dateString) return '';
         return new Date(dateString).toLocaleString();
     };
 
@@ -211,7 +277,7 @@ const MainDataTable: React.FC = () => {
                 >
                     <Column
                         field='name'
-                        header='Name'
+                        header='Название'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '15%' }}
@@ -220,16 +286,34 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='access_rights'
-                        header='Access Rights'
+                        header='Права доступа'
                         sortable
                         headerClassName='centered-header'
-                        style={{ width: '15%' }}
+                        style={{ width: '5%' }}
                         editor={options => cellEditor(options)}
                         onCellEditComplete={onCellEditComplete}
                     />
                     <Column
                         field='size'
-                        header='Size'
+                        header='Размер'
+                        sortable
+                        headerClassName='centered-header'
+                        style={{ width: '5%' }}
+                        editor={options => cellEditor(options)}
+                        onCellEditComplete={onCellEditComplete}
+                    />
+                    <Column
+                        field='host'
+                        header='Хост'
+                        sortable
+                        headerClassName='centered-header'
+                        style={{ width: '5%' }}
+                        editor={options => cellEditor(options)}
+                        onCellEditComplete={onCellEditComplete}
+                    />
+                    <Column
+                        field='frequency_of_use_in_month'
+                        header='Частота использования (мес)'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -237,17 +321,8 @@ const MainDataTable: React.FC = () => {
                         onCellEditComplete={onCellEditComplete}
                     />
                     <Column
-                        field='host'
-                        header='Host'
-                        sortable
-                        headerClassName='centered-header'
-                        style={{ width: '15%' }}
-                        editor={options => cellEditor(options)}
-                        onCellEditComplete={onCellEditComplete}
-                    />
-                    <Column
-                        field='frequency_of_use_in_month'
-                        header='Freq. of Use/Month'
+                        field='description'
+                        header='Описание'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -256,7 +331,7 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='created_at_server'
-                        header='Created at Server'
+                        header='Дата создания на сервере'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -266,7 +341,7 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='created_at_host'
-                        header='Created at Host'
+                        header='Дата создания на хосте'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -276,7 +351,7 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='last_read'
-                        header='Last Read'
+                        header='Последнее чтение'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -286,7 +361,7 @@ const MainDataTable: React.FC = () => {
                     />
                     <Column
                         field='last_modified'
-                        header='Last Modified'
+                        header='Последнее изменение'
                         sortable
                         headerClassName='centered-header'
                         style={{ width: '10%' }}
@@ -295,12 +370,63 @@ const MainDataTable: React.FC = () => {
                         }
                     />
                     <Column
-                        header='Delete'
+                        header='Удалить'
                         body={deleteBodyTemplate}
                         style={{ width: '5%', textAlign: 'center' }}
                     />
                 </DataTable>
             )}
+            <div className='table-toolbar'>
+                <Button
+                    icon='pi pi-plus'
+                    label='Добавить ресурс'
+                    className='p-button-success p-button-block'
+                    onClick={openAddResourceDialog}
+                />
+            </div>
+            <Dialog
+                header='Добавить новый датасет'
+                visible={dialogVisible}
+                onHide={closeAddResourceDialog}
+                style={{ width: '50vw' }}
+                footer={
+                    <div>
+                        <Button
+                            label='Отмена'
+                            icon='pi pi-times'
+                            onClick={closeAddResourceDialog}
+                            className='p-button-text'
+                        />
+                        <Button
+                            label='Добавить'
+                            icon='pi pi-check'
+                            onClick={handleAddResource}
+                            className='p-button-text'
+                        />
+                    </div>
+                }
+            >
+                <div className='p-fluid'>
+                    <div className='p-field'>
+                        <label htmlFor='name'>Название</label>
+                        <InputText
+                            id='name'
+                            value={tempName}
+                            onChange={e => setTempName(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+
+                    <div className='p-field'>
+                        <label htmlFor='description'>Описание</label>
+                        <InputText
+                            id='description'
+                            value={tempDescription}
+                            onChange={e => setTempDescription(e.target.value)}
+                        />
+                    </div>
+                </div>
+            </Dialog>
         </div>
     );
 };

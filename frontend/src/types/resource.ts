@@ -1,6 +1,7 @@
 export interface Resource {
     id: string;
     name: string;
+    description: string;
     access_rights: 'read' | 'write' | 'admin' | 'unknown';
     size: number;
     host: string;

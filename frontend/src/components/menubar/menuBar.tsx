@@ -1,7 +1,7 @@
 import { Button } from 'primereact/button';
 import { Menubar } from 'primereact/menubar';
 import { useNavigate } from 'react-router-dom';
-import './MenuBar.scss';
+import './menuBar.scss';
 
 export const MenuBar = () => {
     const navigate = useNavigate();

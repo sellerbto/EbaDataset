@@ -21,7 +21,7 @@ from pydantic import AnyHttpUrl, BaseModel, SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine.url import URL
 
-PROJECT_DIR = Path(__file__).parent.parent.parent
+PROJECT_DIR = Path(__file__).parent.parent.parent.parent
 
 
 class Security(BaseModel):

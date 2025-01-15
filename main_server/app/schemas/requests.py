@@ -24,6 +24,7 @@ class UserCreateRequest(BaseRequest):
 
 
 class DaemonClientRequest(BaseRequest):
+    dataset_general_info_id: int
     hostname: str
     file_path: str
     dataset_name: str
@@ -39,5 +40,10 @@ class LinkDescriptionUpdateRequest(BaseModel):
     description: Optional[str] = None
 
 class DatasetInfoUpdateRequest(BaseRequest):
+    id: int
+    name: str
+    description: Optional[str] = None
+
+class DatasetInfoCreateRequest(BaseRequest):
     name: str
     description: Optional[str] = None

@@ -1,0 +1,49 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: eba-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${DATABASE__DB}
+      - POSTGRES_USER=${DATABASE__USERNAME}
+      - POSTGRES_PASSWORD=${DATABASE__PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+#    healthcheck:
+#      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'" ]
+#      interval: 10s
+#      timeout: 3s
+#      retries: 3
+    ports:
+      - "${DATABASE__PORT}:5432"
+
+  backend:
+    container_name: eba-backend
+    build:
+      context: ./main_server
+      dockerfile: ./Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    ports:
+      - "8000:8000"
+    # volumes:
+      # - ./main_server:/build
+
+  frontend:
+    container_name: eba-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:5173"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
