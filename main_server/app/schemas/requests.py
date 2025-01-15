@@ -27,7 +27,6 @@ class DaemonClientRequest(BaseRequest):
     dataset_general_info_id: int
     hostname: str
     file_path: str
-    dataset_name: str
     age: datetime
     access_rights: str
     last_access_date: datetime
