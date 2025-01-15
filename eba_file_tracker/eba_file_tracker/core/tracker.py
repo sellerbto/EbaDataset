@@ -55,7 +55,7 @@ class DirectoryEventHandler(FileSystemEventHandler):
         return FileMetadata(
             hostname=socket.gethostname(),
             file_path=file_path,
-            file_id=self.files[file_path].file_id,
+            dataset_general_info_id=self.files[file_path].file_id,
             age=format_timestamp_to_iso8601(stats.st_ctime),
             access_rights=oct(stats.st_mode)[-3:],
             last_access_date=format_timestamp_to_iso8601(stats.st_atime),

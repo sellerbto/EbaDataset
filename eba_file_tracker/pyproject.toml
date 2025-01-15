@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "eba-file-tracker"
-version = "0.1.4"
+version = "0.1.5"
 description = "client for tracking files"
 authors = ["dimastarsis <kurilin.dmitriy@gmail.com>"]
 readme = "README.md"

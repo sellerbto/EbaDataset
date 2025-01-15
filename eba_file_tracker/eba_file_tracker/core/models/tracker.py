@@ -13,7 +13,7 @@ class File(JsonSerializable):
 class FileMetadata(JsonSerializable):
     hostname: str
     file_path: str
-    file_id: int
+    dataset_general_info_id: int
     age: datetime
     access_rights: str
     last_access_date: datetime
