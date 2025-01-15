@@ -9,20 +9,28 @@ from sqlalchemy.orm import selectinload
 
 from app.models import Dataset, DatasetUsageHistory, EventType, Link, DatasetGeneralInfo
 from app.schemas.requests import DaemonClientRequest, LinkDescriptionUpdateRequest
-from app.schemas.responses import Statistic
+from app.schemas.responses import Statistic, DatasetsSummary
 
 
 class DatasetGeneralInfoRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def add(self, name, description):
+    async def add(self, name: str, description: str) -> DatasetsSummary:
         new_record = DatasetGeneralInfo(name=name, description=description)
         self.session.add(new_record)
         await self.session.commit()
         await self.session.refresh(new_record)
+        datasets_summary = DatasetsSummary(
+            dataset_general_info_id=new_record.id,
+            name=new_record.name,
+            description=new_record.description,
+            datasets_infos=[]
+        )
 
-    async def get(self, dataset_general_info_id: int, deep: bool = False) -> DatasetGeneralInfo | None:
+        return datasets_summary
+
+    async def get(self, dataset_general_info_id: int, deep: bool = True) -> DatasetGeneralInfo | None:
         query = select(DatasetGeneralInfo).where(DatasetGeneralInfo.id == dataset_general_info_id)
         if deep:
             query = query.options(selectinload(DatasetGeneralInfo.dataset))
